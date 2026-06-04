@@ -247,7 +247,7 @@ const varLabel = k => (VAR_FIELDS.find(v=>v[0]===k)||[k,k])[1];
    Reduzem a base do plano de ações (não os "recebes na conta"). */
 const FLEX_TYPES = [
   ['','—'],
-  ['leasing','Viatura em leasing'],
+  ['leasing','Car Scheme'],
   ['chequesCreche','Cheques-creche'],
   ['pension','PPR / pensão'],
   ['equipment','Equipamento'],
@@ -355,8 +355,7 @@ function byYear(){
 }
 
 /* =================== FORMATAÇÃO =================== */
-const eur  = n => new Intl.NumberFormat('pt-PT',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n||0);
-const eur2 = n => new Intl.NumberFormat('pt-PT',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(n||0);
+const eur = n => { const v=Math.round(n||0); const a=Math.abs(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u00a0'); return (v<0?'-':'')+a+'\u00a0€'; };
 const pct  = p => (p>=0?'+':'') + (p*100).toLocaleString('pt-PT',{maximumFractionDigits:1}) + '%';
 const MONTHS_PT = ['','jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 function dlabel(d){ const [y,m]=d.split('-'); return MONTHS_PT[+m]+'/'+y; }
@@ -439,7 +438,7 @@ function renderResumo(){
 
     <div class="grid2">
       <div class="card kpi"><div class="lbl">Salário anual (×${MONTHS_PER_YEAR})</div><div class="val">${eur(annualBase(cur))}</div><div class="note">${eur(cur.baseMonthly)} × ${MONTHS_PER_YEAR} meses</div></div>
-      <div class="card kpi"><div class="lbl">Allowances / ano</div><div class="val">${eur(allowanceTotal(cur)+(cur.plafond||0))}</div><div class="note">almoço + viatura${cur.plafond?' + expenses':''}</div></div>
+      <div class="card kpi"><div class="lbl">Allowances / ano</div><div class="val">${eur(allowanceTotal(cur)+(cur.plafond||0))}</div><div class="note">lunch + car${cur.plafond?' + expenses':''}</div></div>
     </div>
 
     <div class="grid2">
@@ -462,8 +461,9 @@ function renderResumo(){
     <div class="card">
       <div class="rows">
         <div class="rline"><span class="k">Plafond Telemóvel</span><span class="v">${eur(cur.fixed.comms||0)}</span></div>
-        <div class="rline"><span class="k">Seguros</span><span class="v">${eur(insurancesTotal(cur))}</span></div>
-        <div class="rline"><span class="k">${STOCK_PLAN_LABEL} <span class="muted" style="font-weight:400">(ganho 15%)</span></span><span class="v">${eur2(spBen)}</span></div>
+        <div class="rline"><span class="k">Seguro Saúde</span><span class="v">${eur(insurancesTotal(cur))}</span></div>
+        <div class="rline"><span class="k">Ações <span class="muted" style="font-weight:400">(Desc. 15%)</span></span><span class="v"><sup style="font-size:9px;color:var(--mut)">*</sup>&thinsp;${eur(spBen)}</span></div>
+        <div style="padding-left:10px;font-size:10px;color:var(--mut);margin:-6px 0 4px">* ganho estimado (valor indicativo)</div>
         <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total benefícios fixos</b></span><span class="v"><b>${eur(benT)}</b></span></div>
       </div>
     </div>
@@ -473,8 +473,8 @@ function renderResumo(){
         <div class="rows">
           <div class="rline"><span class="k">Base (em conta)</span><span class="v">${eur(stockPlanBase(cur))}</span></div>
           <div class="rline"><span class="k" style="padding-left:10px;font-size:12px">ordenado + prémios + viatura + expenses − benefícios</span><span class="v">&nbsp;</span></div>
-          <div class="rline"><span class="k">Contribuição (${cur.stockPlanPct||0}%)</span><span class="v">${eur2(spContrib)}</span></div>
-          <div class="rline"><span class="k">Ganho do desconto (15%)</span><span class="v" style="color:var(--good)">${eur2(spBen)}</span></div>
+          <div class="rline"><span class="k">Contribuição (${cur.stockPlanPct||0}%)</span><span class="v">${eur(spContrib)}</span></div>
+          <div class="rline"><span class="k">Ganho do desconto (15%)</span><span class="v" style="color:var(--good)">${eur(spBen)}</span></div>
         </div>
       </div>
     </details>
@@ -557,14 +557,14 @@ function renderRevs(){
             ${r.plafond?`<div class="rline"><span class="k" style="padding-left:10px">· Expenses Allowance</span><span class="v">${eur(r.plafond)}</span></div>`:''}
             <div class="rline"><span class="k">Benefícios Fixos</span><span class="v">${eur(fixedBenefTotal(r))}</span></div>
             ${r.fixed.comms?`<div class="rline"><span class="k" style="padding-left:10px">· Plafond Telemóvel</span><span class="v">${eur(r.fixed.comms)}</span></div>`:''}
-            ${insurancesTotal(r)?`<div class="rline"><span class="k" style="padding-left:10px">· Seguros</span><span class="v">${eur(insurancesTotal(r))}</span></div>`:''}
-            ${stockPlanBenefit(r)?`<div class="rline"><span class="k" style="padding-left:10px">· Ações <span class="muted">(Desc. 15%)</span></span><span class="v">* ${eur2(stockPlanBenefit(r))}</span></div>`:''}
+            ${insurancesTotal(r)?`<div class="rline"><span class="k" style="padding-left:10px">· Seguro Saúde</span><span class="v">${eur(insurancesTotal(r))}</span></div>`:''}
+            ${stockPlanBenefit(r)?`<div class="rline"><span class="k" style="padding-left:10px">· Ações <span class="muted">(Desc. 15%)</span></span><span class="v"><sup style="font-size:9px;color:var(--mut)">*</sup>&thinsp;${eur(stockPlanBenefit(r))}</span></div>
+            <div style="padding-left:20px;font-size:10px;color:var(--mut);margin:-4px 0 4px">* ganho estimado (valor indicativo)</div>`:''}
             <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total compensation</b></span><span class="v"><b>${eur(totalComp(r))}</b></span></div>
-            ${(flexTotal(r)+expenseBenefitsTotal(r))?`<div class="rline" style="margin-top:6px"><span class="k">Utilização de Allowances <span class="muted">(já incluído acima)</span></span><span class="v">${eur(flexTotal(r)+expenseBenefitsTotal(r))}</span></div>
+            ${(flexTotal(r)+expenseBenefitsTotal(r))?`<div class="rline" style="margin-top:6px"><span class="k">Utilização de allowances/prémios</span><span class="v">${eur(flexTotal(r)+expenseBenefitsTotal(r))}</span></div>
             ${(r.benefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k" style="padding-left:10px">· ${flexLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join('')}
             ${(r.expenseBenefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k" style="padding-left:10px">· ${expenseLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join('')}`:''}
           </div>
-          ${stockPlanBenefit(r)?`<p class="hint" style="margin:8px 2px 0">* Ações: ganho estimado do desconto (valor indicativo).</p>`:''}
           <div class="editbtns">
             <button class="btn ghost sm" onclick="editRev(${i})">✎ Editar</button>
             <button class="btn danger sm" onclick="delRev(${i})">🗑 Eliminar</button>
@@ -761,8 +761,8 @@ function updateComputed(){
   // resumo do plano de ações (junto ao campo da %)
   const sb=document.getElementById('f-stock');
   if(sb) sb.innerHTML =
-    `Base: <b>${eur(spBase)}</b> &nbsp;·&nbsp; contribuição (${r.stockPlanPct||0}%): <b>${eur2(spContrib)}</b><br>`+
-    `Ganho do desconto 15%: <b style="color:var(--good)">${eur2(spBen)}</b>`;
+    `Base: <b>${eur(spBase)}</b> &nbsp;·&nbsp; contribuição (${r.stockPlanPct||0}%): <b>${eur(spContrib)}</b><br>`+
+    `Ganho do desconto 15%: <b style="color:var(--good)">${eur(spBen)}</b>`;
   document.getElementById('f-computed').innerHTML =
     `Salário anual: <b>${eur(r.baseMonthly*MONTHS_PER_YEAR)}</b><br>`+
     `Aumento base vs revisão anterior: <b>${prev?(dM>=0?'+':'')+eur(dM)+' · '+pct(pM):'—'}</b><br>`+
@@ -887,7 +887,7 @@ function renderCharts(){
   const benefBreakdown = i => {
     const last=yrs[i].last, out=[];
     BENEFIT_FIELDS.forEach(([k,lbl])=>{ if(!excluded.has(exKey('benef',k)) && last.fixed[k]) out.push('   · '+lbl+': '+eur(last.fixed[k])); });
-    if(!excluded.has(exKey('stock','plan')) && stockPlanBenefit(last)) out.push('   · '+STOCK_PLAN_LABEL+' (ganho): '+eur2(stockPlanBenefit(last)));
+    if(!excluded.has(exKey('stock','plan')) && stockPlanBenefit(last)) out.push('   · '+STOCK_PLAN_LABEL+' (ganho): '+eur(stockPlanBenefit(last)));
     return out;
   };
 
