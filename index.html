@@ -106,7 +106,12 @@ nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width
 .rnav .mid .s{font-size:11px;color:var(--mut);margin-top:1px}
 .rnav .latest{font-size:10px;color:var(--acc);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
 /* filtros de gráficos */
-.filters{display:flex;flex-wrap:wrap;gap:7px;margin:4px 2px 12px}
+.filter-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;font-size:14px;font-weight:700;user-select:none}
+.filter-head .fcount{font-size:12px;font-weight:700;color:var(--acc);margin-left:8px}
+.filter-head .chev{color:var(--mut);transition:transform .2s}
+.filter-head.open .chev{transform:rotate(180deg)}
+.filter-body{padding:0 16px 14px}
+.filters{display:flex;flex-wrap:wrap;gap:7px;margin:0}
 .fchip{font-size:12px;font-weight:600;background:var(--pill);color:var(--mut);border:1px solid var(--line);padding:6px 11px;border-radius:999px;cursor:pointer;user-select:none;transition:.15s}
 .fchip.on{background:rgba(110,168,255,.16);color:var(--acc);border-color:rgba(110,168,255,.4)}
 .fchip .x{font-size:10px;margin-left:4px;opacity:.6}
@@ -129,15 +134,20 @@ small.foot{display:block;text-align:center;color:var(--mut);font-size:11px;margi
   <section id="view-resumo" class="active"></section>
   <!-- EVOLUÇÃO -->
   <section id="view-evol">
-    <h2 class="title">Filtros</h2>
-    <p class="hint" style="margin-top:0">Toca para excluir itens da análise. Afeta todos os gráficos.</p>
-    <div class="filters" id="evol-filters"></div>
+    <div class="card" style="padding:0;margin-bottom:12px">
+      <div class="filter-head" id="filter-head" onclick="toggleFiltersPanel()">
+        <span>Filtros<span class="fcount" id="filter-count"></span></span>
+        <span class="chev" id="filter-chev">▾</span>
+      </div>
+      <div class="filter-body" id="filter-body" hidden>
+        <p class="hint" style="margin:0 0 10px">Toca para excluir itens da análise. Afeta todos os gráficos.</p>
+        <div class="filters" id="evol-filters"></div>
+      </div>
+    </div>
     <h2 class="title">Salário base mensal</h2>
     <div class="card"><div class="chartbox"><canvas id="c-base"></canvas></div></div>
     <h2 class="title">Total compensation por ano</h2>
     <div class="card"><div class="chartbox"><canvas id="c-total"></canvas></div></div>
-    <h2 class="title">Componente variável por ano</h2>
-    <div class="card"><div class="chartbox"><canvas id="c-var"></canvas></div></div>
     <small class="foot">Por ano usa-se a última revisão para base/fixo/plafond e a soma do ano para o variável. Toca nas barras para o detalhe.</small>
   </section>
   <!-- REVISÕES -->
@@ -202,7 +212,7 @@ const levelByCode = c => LEVELS.find(l=>l.code===c) || {code:c,name:c,no:''};
 
 const FIXED_FIELDS = [
   ['lunch','Subsídio de almoço'],
-  ['car','Subsídio de viatura'],
+  ['car','Car Allowance'],
   ['comms','Comunicações'],
   ['paat','PAAT (15% Acc Shares)'],
   ['health','Seguro de saúde'],
@@ -216,6 +226,7 @@ const VAR_FIELDS = [
   ['localVariable','Local Variable Pay'],
   ['indivPerf','Indiv. Performance Bonus'],
   ['globalAnnual','Global Annual Bonus'],
+  ['oneTimeLump','One Time Lump Sum'],
 ];
 
 /* Os dados NÃO ficam no HTML. Carregam-se de um JSON importado em "Backup"
@@ -636,7 +647,17 @@ function toggleFilter(g,k){
   renderFilters(); renderCharts();
 }
 function clearFilters(){ excluded.clear(); renderFilters(); renderCharts(); }
+function toggleFiltersPanel(){
+  const head=document.getElementById('filter-head');
+  const body=document.getElementById('filter-body');
+  if(!head||!body) return;
+  const open=body.hidden;
+  body.hidden=!open;
+  head.classList.toggle('open',open);
+}
 function renderFilters(){
+  const cnt=document.getElementById('filter-count');
+  if(cnt) cnt.textContent = excluded.size? ` · ${excluded.size} excluído${excluded.size>1?'s':''}` : '';
   const el=document.getElementById('evol-filters');
   if(!el) return;
   el.innerHTML = EXCLUDABLE.map(([g,k,lbl])=>{
@@ -717,15 +738,6 @@ function renderCharts(){
           afterLabel:ctx=> ctx.dataset.kind==='fixo' ? fixedBreakdown(ctx.dataIndex) : '',
           footer:items=>'Total: '+eur(yrs[items[0].dataIndex].total)}}},
       scales:{x:{stacked:true,grid,ticks:tick},y:{stacked:true,grid,ticks:{...tick,callback:v=>(v/1000)+'k'}}}}
-  });
-
-  // 3) variável por ano
-  charts.var = new Chart(document.getElementById('c-var'),{
-    type:'bar',
-    data:{labels:yrs.map(y=>y.year),
-      datasets:[{label:'Variável',data:yrs.map(y=>y.variable),backgroundColor:'#4ade80',borderRadius:6}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend},
-      scales:{x:{grid,ticks:tick},y:{grid,ticks:{...tick,callback:v=>(v/1000)+'k'}}}}
   });
 }
 
