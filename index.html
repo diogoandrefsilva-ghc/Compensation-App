@@ -533,7 +533,6 @@ function renderRevs(){
       const cls = dM>0?'up':dM<0?'down':'flat';
       const promo = prev && prev.level!==r.level;
       const vt = varTotal(r);
-      const tags = VAR_FIELDS.filter(([k])=>r.variable[k]).map(([k,lbl])=>`<span class="tag var">${lbl}: ${eur(r.variable[k])}</span>`).join('');
       html += `
       <div class="rev" id="rev-${i}">
         <div class="top" onclick="toggleRev(${i})">
@@ -543,27 +542,29 @@ function renderRevs(){
             ${r.banding?`<div class="band">${r.banding}</div>`:''}
           </div>
           <div class="amt">
-            <div class="m">${eur(r.baseMonthly)}</div>
-            <div class="a">/mês · ${eur(annualBase(r))}/ano</div>
+            <div class="m">${eur(r.baseMonthly)} <span style="font-size:11px;font-weight:600;color:var(--mut)">/mês</span></div>
+            <div class="a">${eur(annualBase(r))}/ano</div>
             ${prev?`<div class="delta ${cls}" style="margin-top:5px">${dM>=0?'+':''}${eur(dM)} · ${pct(pM)}</div>`:'<div class="a">início</div>'}
           </div>
         </div>
         <div class="detail">
           <div class="rows">
-            <div class="rline"><span class="k">Allowances</span><span class="v">${eur(allowanceTotal(r))}</span></div>
+            <div class="rline"><span class="k">Salário base (anual)</span><span class="v">${eur(annualBase(r))}</span></div>
+            ${vt?`<div class="rline"><span class="k">Prémios (variável)</span><span class="v">${eur(vt)}</span></div>
+            ${VAR_FIELDS.filter(([k])=>r.variable[k]).map(([k,lbl])=>`<div class="rline"><span class="k" style="padding-left:10px">· ${lbl}</span><span class="v">${eur(r.variable[k])}</span></div>`).join('')}`:''}
+            <div class="rline"><span class="k">Allowances</span><span class="v">${eur(allowanceTotal(r)+(r.plafond||0))}</span></div>
             ${ALLOWANCE_FIELDS.filter(([k])=>r.fixed[k]).map(([k,lbl])=>`<div class="rline"><span class="k" style="padding-left:10px">· ${lbl}</span><span class="v">${eur(r.fixed[k])}</span></div>`).join('')}
+            ${r.plafond?`<div class="rline"><span class="k" style="padding-left:10px">· Expenses Allowance</span><span class="v">${eur(r.plafond)}</span></div>`:''}
             <div class="rline"><span class="k">Benefícios Fixos</span><span class="v">${eur(fixedBenefTotal(r))}</span></div>
             ${r.fixed.comms?`<div class="rline"><span class="k" style="padding-left:10px">· Plafond Telemóvel</span><span class="v">${eur(r.fixed.comms)}</span></div>`:''}
             ${insurancesTotal(r)?`<div class="rline"><span class="k" style="padding-left:10px">· Seguros</span><span class="v">${eur(insurancesTotal(r))}</span></div>`:''}
-            ${stockPlanBenefit(r)?`<div class="rline"><span class="k" style="padding-left:10px">· ${STOCK_PLAN_LABEL} <span class="muted">(ganho 15%)</span></span><span class="v">${eur2(stockPlanBenefit(r))}</span></div>`:''}
-            <div class="rline"><span class="k">Variável (revisão)</span><span class="v">${eur(vt)}</span></div>
-            ${flexTotal(r)?`<div class="rline"><span class="k">Benefícios Flex <span class="muted">(dos prémios)</span></span><span class="v">${eur(flexTotal(r))}</span></div>`+(r.benefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k" style="padding-left:10px">· ${flexLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join(''):''}
-            ${stockPlanContribution(r)?`<div class="rline"><span class="k">${STOCK_PLAN_LABEL} — base / contribuição</span><span class="v">${eur(stockPlanBase(r))} · ${eur2(stockPlanContribution(r))} (${r.stockPlanPct||0}%)</span></div>`:''}
-            ${r.plafond?`<div class="rline"><span class="k">Expenses Allowance</span><span class="v">${eur(r.plafond)}</span></div>`+(r.expenseBenefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k" style="padding-left:10px">· ${expenseLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join(''):''}
-            <div class="rline"><span class="k">Base + outros (anual)</span><span class="v">${eur(basePlusOther(r))}</span></div>
-            <div class="rline"><span class="k"><b>Total compensation</b></span><span class="v"><b>${eur(totalComp(r))}</b></span></div>
+            ${stockPlanBenefit(r)?`<div class="rline"><span class="k" style="padding-left:10px">· Ações <span class="muted">(Desc. 15%)</span></span><span class="v">* ${eur2(stockPlanBenefit(r))}</span></div>`:''}
+            <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total compensation</b></span><span class="v"><b>${eur(totalComp(r))}</b></span></div>
+            ${(flexTotal(r)+expenseBenefitsTotal(r))?`<div class="rline" style="margin-top:6px"><span class="k">Utilização de Allowances <span class="muted">(já incluído acima)</span></span><span class="v">${eur(flexTotal(r)+expenseBenefitsTotal(r))}</span></div>
+            ${(r.benefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k" style="padding-left:10px">· ${flexLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join('')}
+            ${(r.expenseBenefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k" style="padding-left:10px">· ${expenseLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join('')}`:''}
           </div>
-          ${tags?`<div class="tags">${tags}</div>`:''}
+          ${stockPlanBenefit(r)?`<p class="hint" style="margin:8px 2px 0">* Ações: ganho estimado do desconto (valor indicativo).</p>`:''}
           <div class="editbtns">
             <button class="btn ghost sm" onclick="editRev(${i})">✎ Editar</button>
             <button class="btn danger sm" onclick="delRev(${i})">🗑 Eliminar</button>
