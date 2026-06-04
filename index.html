@@ -339,6 +339,8 @@ const fixedBenefManual = r => BENEFIT_FIELDS.reduce((s,[k])=> s + (r.fixed[k]||0
 const fixedBenefTotal  = r => fixedBenefManual(r) + stockPlanBenefit(r);
 const basePlusOther = r => annualBase(r) + allowanceTotal(r) + fixedBenefTotal(r) + varTotal(r);
 const totalComp = r => basePlusOther(r) + (r.plafond||0);
+/* Compensação "run-rate": total sem o variável (prémios), para comparar revisão-a-revisão sem o ruído do timing do bónus */
+const compRunRate = r => totalComp(r) - varTotal(r);
 const yearOf = r => r.date.slice(0,4);
 
 /* agrega por ano segundo as regras: base/fixo/plafond = última revisão; variável = soma do ano */
@@ -581,8 +583,8 @@ function renderRevs(){
       const pM = prev && prev.baseMonthly ? dM/prev.baseMonthly : 0;
       const cls = dM>0?'up':dM<0?'down':'flat';
       const dAB = prev ? annualBase(r) - annualBase(prev) : 0;
-      const dTC = prev ? totalComp(r) - totalComp(prev) : 0;
-      const pTC = prev && totalComp(prev) ? dTC/totalComp(prev) : 0;
+      const dTC = prev ? compRunRate(r) - compRunRate(prev) : 0;
+      const pTC = prev && compRunRate(prev) ? dTC/compRunRate(prev) : 0;
       const clsTC = dTC>0?'up':dTC<0?'down':'flat';
       const promo = prev && prev.level!==r.level;
       const vt = varTotal(r);
