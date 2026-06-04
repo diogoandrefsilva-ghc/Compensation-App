@@ -417,10 +417,6 @@ function renderResumo(){
   const pM = prev && prev.baseMonthly ? dM/prev.baseMonthly : 0;
   const cls = dM>0?'up':dM<0?'down':'flat';
   const arrow = dM>0?'▲':dM<0?'▼':'■';
-  const dTC = prev ? totalComp(cur) - totalComp(prev) : 0;
-  const pTC = prev && totalComp(prev) ? dTC/totalComp(prev) : 0;
-  const clsTC = dTC>0?'up':dTC<0?'down':'flat';
-  const arrowTC = dTC>0?'▲':dTC<0?'▼':'■';
 
   // ano da revisão em foco
   const curYear = yearOf(cur);
@@ -446,6 +442,13 @@ function renderResumo(){
   const spBen = stockPlanBenefit(cur);
   const totalC = yr ? yr.total : totalComp(cur);
   const varAno = yr ? yr.variable : varTotal(cur);
+  const isLastOfYear = idx===DATA.length-1 || yearOf(DATA[idx+1])!==curYear;
+  const yrIdx = yrs.findIndex(y=>y.year===curYear);
+  const prevYr = yrIdx>0 ? yrs[yrIdx-1] : null;
+  const dTC = prevYr ? totalC - prevYr.total : 0;
+  const pTC = prevYr && prevYr.total ? dTC/prevYr.total : 0;
+  const clsTC = dTC>0?'up':dTC<0?'down':'flat';
+  const arrowTC = dTC>0?'▲':dTC<0?'▼':'■';
   const naoTributavel = (cur.fixed.lunch||0) + benT + flexT + expBen; // almoço + benef. fixos + flex + utilização do plafond
   const tributavel = totalC - naoTributavel;
 
@@ -466,12 +469,16 @@ function renderResumo(){
       <div class="card kpi"><div class="lbl">Variável ${curYear}</div><div class="val">${eur(yr?yr.variable:varTotal(cur))}</div><div class="note">soma dos prémios do ano</div></div>
     </div>
 
+    ${isLastOfYear?`
     <div class="card hero" style="margin-top:2px">
       <span class="lbl">Total compensation ${curYear} (estimado)</span>
       <span class="big">${eur(totalC)}</span>
-      <span class="delta ${clsTC}">${arrowTC} ${dTC>=0?'+':''}${eur(dTC)} · ${pct(pTC)} vs revisão anterior</span>
+      ${prevYr?`<span class="delta ${clsTC}">${arrowTC} ${dTC>=0?'+':''}${eur(dTC)} · ${pct(pTC)} vs ${prevYr.year}</span>`:''}
       <span class="muted" style="font-size:12px">base ${eur(annualBase(cur))} · allowances ${eur(allowanceTotal(cur))} · benef. fixos ${eur(benT)} · variável ${eur(yr?yr.variable:0)}${cur.plafond?` · expenses ${eur(cur.plafond)}`:''}</span>
-    </div>
+    </div>`:`
+    <div class="card" style="margin-top:2px">
+      <p class="muted" style="margin:0;font-size:13px">O <b>Total Compensation</b> e a repartição fiscal são apresentados na <b>última revisão de cada ano</b>, quando os dados do ano estão completos.</p>
+    </div>`}
 
     <h2 class="title">Benefícios Fixos · ${dlabel(cur.date)}</h2>
     <div class="card">
@@ -502,7 +509,7 @@ function renderResumo(){
         ${(cur.benefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k">${flexLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join('')}
         <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total Flex</b></span><span class="v"><b>${eur(flexT)}</b></span></div>
       </div>
-      <p class="hint" style="margin:8px 0 0">Os Flex saem dos prémios variáveis e reduzem a base do plano de ações.</p>
+      <p class="hint" style="margin:8px 0 0">Os benefícios Flex consomem dos prémios e Car Allowance.</p>
     </div>`:''}
 
     ${cur.plafond?`
@@ -515,14 +522,7 @@ function renderResumo(){
       </div>
     </div>`:''}
 
-    <h2 class="title">Revisão · ${dlabel(cur.date)}</h2>
-    <div class="card">
-      <div class="rows">
-        ${cur.banding?`<div class="rline"><span class="k">Banding / Outcome</span><span class="v">${cur.banding}</span></div>`:''}
-        ${raisesThisYear>1?`<div class="rline"><span class="k">Revisões em ${curYear}</span><span class="v"><span class="badge">${raisesThisYear} no ano</span></span></div>`:''}
-        <div class="rline"><span class="k">Carreira</span><span class="v">${dlabel(DATA[0].date)} → ${dlabel(DATA[DATA.length-1].date)}</span></div>
-      </div>
-    </div>
+    ${isLastOfYear?`
     <h2 class="title">Repartição fiscal · ${dlabel(cur.date)}</h2>
     <details class="card tax">
       <summary>
@@ -555,7 +555,7 @@ function renderResumo(){
           <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total não sujeito a impostos</b></span><span class="v"><b>${eur(naoTributavel)}</b></span></div>
         </div>
       </div>
-    </details>
+    </details>`:''}
 
     <small class="foot">${DATA.length} revisões registadas</small>
   `;
