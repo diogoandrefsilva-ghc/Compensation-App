@@ -148,7 +148,7 @@ small.foot{display:block;text-align:center;color:var(--mut);font-size:11px;margi
     <div class="card"><div class="chartbox"><canvas id="c-base"></canvas></div></div>
     <h2 class="title">Total compensation por ano</h2>
     <div class="card"><div class="chartbox"><canvas id="c-total"></canvas></div></div>
-    <small class="foot">Por ano usa-se a última revisão para base/fixo/plafond e a soma do ano para o variável. Toca nas barras para o detalhe.</small>
+    <small class="foot">Por ano usa-se a última revisão para base, allowances, benefícios fixos e Expenses Allowance, e a soma do ano para o variável. Toca nas barras para o detalhe.</small>
   </section>
   <!-- REVISÕES -->
   <section id="view-revs"></section>
@@ -210,14 +210,21 @@ const LEVELS = [
 ];
 const levelByCode = c => LEVELS.find(l=>l.code===c) || {code:c,name:c,no:''};
 
-const FIXED_FIELDS = [
-  ['lunch','Subsídio de almoço'],
+/* ALLOWANCES (antes "Fixos") */
+const ALLOWANCE_FIELDS = [
+  ['lunch','Lunch Allowance'],
   ['car','Car Allowance'],
-  ['comms','Comunicações'],
-  ['paat','PAAT (15% Acc Shares)'],
+];
+/* BENEFÍCIOS FIXOS — campos inseridos manualmente (o Plano de Ações é CALCULADO, ver abaixo) */
+const BENEFIT_FIELDS = [
+  ['comms','Plafond Telemóvel'],
   ['health','Seguro de saúde'],
   ['healthFamily','Seguro de saúde (família)'],
 ];
+const STOCK_PLAN_LABEL = 'Plano de Ações';
+const STOCK_PLAN_DEFAULT_PCT = 10; // PAAT: 10% do (ordenado + prémios em conta − Flex)
+const STOCK_DISCOUNT = 0.15;       // ações compradas com 15% de desconto
+/* catálogo de tipos de prémio para a componente Variável (dropdown no botão +) */
 const VAR_FIELDS = [
   ['retention','Retention Bonus'],
   ['transition','Transition Bonus'],
@@ -228,6 +235,26 @@ const VAR_FIELDS = [
   ['globalAnnual','Global Annual Bonus'],
   ['oneTimeLump','One Time Lump Sum'],
 ];
+const varLabel = k => (VAR_FIELDS.find(v=>v[0]===k)||[k,k])[1];
+/* BENEFÍCIOS FLEX — parte dos prémios variáveis que retiras em benefícios líquidos.
+   Reduzem a base do plano de ações (não os "recebes na conta"). */
+const FLEX_TYPES = [
+  ['','—'],
+  ['leasing','Viatura em leasing'],
+  ['chequesCreche','Cheques-creche'],
+  ['pension','PPR / pensão'],
+  ['equipment','Equipamento'],
+  ['other','Outro'],
+];
+const flexLabel = t => (FLEX_TYPES.find(x=>x[0]===t)||[null,t||'benefício'])[1];
+/* EXPENSES ALLOWANCE — conversões do plafond de despesas em benefícios */
+const EXPENSE_TYPES = [
+  ['','—'],
+  ['galp','Galp Frota'],
+  ['restauracao','Faturas Restauração'],
+  ['other','Outro'],
+];
+const expenseLabel = t => (EXPENSE_TYPES.find(x=>x[0]===t)||[null,t||'despesa'])[1];
 
 /* Os dados NÃO ficam no HTML. Carregam-se de um JSON importado em "Backup"
    e ficam persistentes no localStorage deste dispositivo. */
@@ -243,38 +270,55 @@ function load(){
 }
 function save(){ localStorage.setItem(LS_KEY, JSON.stringify(DATA)); }
 function normalize(){
+  const ALL_MANUAL = [...ALLOWANCE_FIELDS, ...BENEFIT_FIELDS];
   DATA.forEach(r=>{
     r.fixed = r.fixed||{}; r.variable = r.variable||{};
-    FIXED_FIELDS.forEach(([k])=> r.fixed[k] = +r.fixed[k]||0);
+    // Plano de ações: % alocada (default 10%). O antigo campo paat era um valor manual e é descartado.
+    r.stockPlanPct = (r.stockPlanPct != null ? +r.stockPlanPct : STOCK_PLAN_DEFAULT_PCT) || 0;
+    // Allowances + Benefícios Fixos manuais
+    ALL_MANUAL.forEach(([k])=> r.fixed[k] = +r.fixed[k]||0);
+    delete r.fixed.paat; // passou a ser calculado
+    // Variável
     VAR_FIELDS.forEach(([k])=> r.variable[k] = +r.variable[k]||0);
     r.baseMonthly = +r.baseMonthly||0;
-    // plafond passou a ser um valor único (estimativa bruta ~3.000€); aceita dados antigos
+    // Expenses Allowance (valor único, ~3.000€); aceita dados antigos chamados "plafond"
     r.plafond = +(r.plafond != null ? r.plafond : r.plafondGross) || 0;
     delete r.plafondNet; delete r.plafondGross;
-    // benefícios: parte da variável convertida em benefícios líquidos (leasing, cheques-creche, etc.)
+    // Benefícios Flex: parte dos prémios variáveis convertida em benefícios líquidos
     r.benefits = Array.isArray(r.benefits) ? r.benefits.map(b=>({
       type: b.type||'', amount: +b.amount||0
     })) : [];
-    // plano de ações: % do vencimento alocada (default 10%)
-    r.stockPlanPct = (r.stockPlanPct != null ? +r.stockPlanPct : 10) || 0;
+    // Conversões do Expenses Allowance (Galp Frota, Faturas Restauração, etc.)
+    r.expenseBenefits = Array.isArray(r.expenseBenefits) ? r.expenseBenefits.map(b=>({
+      type: b.type||'', amount: +b.amount||0
+    })) : [];
   });
   DATA.sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 }
 
 /* =================== CÁLCULOS =================== */
 const annualBase = r => r.baseMonthly * MONTHS_PER_YEAR;
-const fixedTotal = r => FIXED_FIELDS.reduce((s,[k])=> s + (r.fixed[k]||0), 0);
+const allowanceTotal = r => ALLOWANCE_FIELDS.reduce((s,[k])=> s + (r.fixed[k]||0), 0);
+const insurancesTotal = r => (r.fixed.health||0) + (r.fixed.healthFamily||0);
 const varTotal   = r => VAR_FIELDS.reduce((s,[k])=> s + (r.variable[k]||0), 0);
-const basePlusOther = r => annualBase(r) + fixedTotal(r) + varTotal(r);
+/* Benefícios Flex — parte dos prémios variáveis retirada em benefícios líquidos */
+const flexTotal  = r => (r.benefits||[]).reduce((s,b)=> s + (+b.amount||0), 0);
+/* Conversões do Expenses Allowance (Galp Frota, Faturas Restauração, …) */
+const expenseBenefitsTotal = r => (r.expenseBenefits||[]).reduce((s,b)=> s + (+b.amount||0), 0);
+/* Plano de Ações: 10% do que recebes EM CONTA = ordenado + prémios + Car Allowance + Expenses Allowance
+   − todos os benefícios convertidos (Flex + conversões de despesas).
+   As ações são compradas com 15% de desconto → o ganho é STOCK_DISCOUNT da contribuição. */
+const stockPlanBase = r => Math.max(0,
+  annualBase(r) + varTotal(r) + (r.fixed.car||0) + (r.plafond||0)
+  - flexTotal(r) - expenseBenefitsTotal(r));
+const stockPlanContribution = r => stockPlanBase(r) * ((r.stockPlanPct||0)/100);
+const stockPlanBenefit = r => stockPlanContribution(r) * STOCK_DISCOUNT;
+/* Benefícios Fixos: Plafond Telemóvel + Seguros + ganho do Plano de Ações */
+const fixedBenefManual = r => BENEFIT_FIELDS.reduce((s,[k])=> s + (r.fixed[k]||0), 0);
+const fixedBenefTotal  = r => fixedBenefManual(r) + stockPlanBenefit(r);
+const basePlusOther = r => annualBase(r) + allowanceTotal(r) + fixedBenefTotal(r) + varTotal(r);
 const totalComp = r => basePlusOther(r) + (r.plafond||0);
 const yearOf = r => r.date.slice(0,4);
-const benefitsTotal = r => (r.benefits||[]).reduce((s,b)=> s + (+b.amount||0), 0);
-const STOCK_DISCOUNT = 0.15; // desconto sobre o preço de mercado das ações
-/* base de cálculo do plano de ações:
-   base anual + prémios anuais (variável) + prémio do carro − valor alocado em benefícios */
-const stockPlanBase = r => Math.max(0, annualBase(r) + varTotal(r) + (r.fixed.car||0) - benefitsTotal(r));
-const stockPlanContribution = r => stockPlanBase(r) * ((r.stockPlanPct||0)/100); // valor de desconto p/ o plano
-const stockPlanBenefit = r => stockPlanContribution(r) * STOCK_DISCOUNT;        // poupança por ter o plano ativo
 
 /* agrega por ano segundo as regras: base/fixo/plafond = última revisão; variável = soma do ano */
 function byYear(){
@@ -292,10 +336,11 @@ function byYear(){
       year, revs, last,
       baseMonthly:last.baseMonthly,
       annualBase:annualBase(last),
-      fixed:fixedTotal(last),
+      allowances:allowanceTotal(last),
+      benefits:fixedBenefTotal(last),
       variable:variableYear,
       plafond:last.plafond||0,
-      total: annualBase(last)+fixedTotal(last)+variableYear+(last.plafond||0),
+      total: annualBase(last)+allowanceTotal(last)+fixedBenefTotal(last)+variableYear+(last.plafond||0),
     });
   }
   out.sort((a,b)=> a.year - b.year);
@@ -370,9 +415,10 @@ function renderResumo(){
     </div>
     ${!isLatest?`<div class="frow-actions"><button class="btn ghost sm" style="width:100%" onclick="resumoLatest()">↩ Voltar à revisão atual</button></div>`:''}`;
 
-  const benT = benefitsTotal(cur);
-  const stockContrib = stockPlanContribution(cur);
-  const stockBen = stockPlanBenefit(cur);
+  const benT = fixedBenefTotal(cur);
+  const flexT = flexTotal(cur);
+  const spContrib = stockPlanContribution(cur);
+  const spBen = stockPlanBenefit(cur);
 
   el.innerHTML = navBar + `
     <div class="card hero">
@@ -387,20 +433,59 @@ function renderResumo(){
     </div>
 
     <div class="grid2">
-      <div class="card kpi"><div class="lbl">Total fixo / ano</div><div class="val">${eur(fixedTotal(cur))}</div><div class="note">subsídios + seguros</div></div>
+      <div class="card kpi"><div class="lbl">Allowances / ano</div><div class="val">${eur(allowanceTotal(cur))}</div><div class="note">almoço + viatura</div></div>
+      <div class="card kpi"><div class="lbl">Benefícios Fixos / ano</div><div class="val">${eur(benT)}</div><div class="note">telemóvel + seguros + ações</div></div>
+    </div>
+
+    <div class="grid2">
       <div class="card kpi"><div class="lbl">Variável ${curYear}</div><div class="val">${eur(yr?yr.variable:varTotal(cur))}</div><div class="note">soma dos prémios do ano</div></div>
+      <div class="card kpi"><div class="lbl">${STOCK_PLAN_LABEL} (ganho)</div><div class="val">${eur(spBen)}</div><div class="note">${cur.stockPlanPct||0}% × 15% desconto</div></div>
     </div>
 
     <div class="card hero" style="margin-top:2px">
       <span class="lbl">Total compensation ${curYear} (estimado)</span>
       <span class="big">${eur(yr?yr.total:totalComp(cur))}</span>
-      <span class="muted" style="font-size:12px">base ${eur(annualBase(cur))} · fixo ${eur(fixedTotal(cur))} · variável ${eur(yr?yr.variable:0)}${cur.plafond?` · plafond ${eur(cur.plafond)}`:''}</span>
+      <span class="muted" style="font-size:12px">base ${eur(annualBase(cur))} · allowances ${eur(allowanceTotal(cur))} · benef. fixos ${eur(benT)} · variável ${eur(yr?yr.variable:0)}${cur.plafond?` · expenses ${eur(cur.plafond)}`:''}</span>
     </div>
 
-    ${(benT>0 || stockContrib>0)?`
-    <div class="grid2">
-      <div class="card kpi"><div class="lbl">Benefícios convertidos</div><div class="val">${eur(benT)}</div><div class="note">${(cur.benefits||[]).length} ${((cur.benefits||[]).length===1?'item':'itens')}</div></div>
-      <div class="card kpi"><div class="lbl">Benefício plano de ações</div><div class="val">${eur2(stockBen)}</div><div class="note">${(cur.stockPlanPct||0)}% × 15% desconto</div></div>
+    <h2 class="title">Benefícios Fixos · ${dlabel(cur.date)}</h2>
+    <div class="card">
+      <div class="rows">
+        <div class="rline"><span class="k">Plafond Telemóvel</span><span class="v">${eur(cur.fixed.comms||0)}</span></div>
+        <div class="rline"><span class="k">Seguros</span><span class="v">${eur(insurancesTotal(cur))}</span></div>
+        <div class="rline"><span class="k">${STOCK_PLAN_LABEL} <span class="muted" style="font-weight:400">(ganho 15%)</span></span><span class="v">${eur2(spBen)}</span></div>
+        <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total benefícios fixos</b></span><span class="v"><b>${eur(benT)}</b></span></div>
+      </div>
+    </div>
+
+    <h2 class="title">${STOCK_PLAN_LABEL} (PAAT) · ${dlabel(cur.date)}</h2>
+    <div class="card">
+      <div class="rows">
+        <div class="rline"><span class="k">Base de cálculo</span><span class="v">${eur(stockPlanBase(cur))}</span></div>
+        <div class="rline"><span class="k" style="padding-left:10px;font-size:12px">ordenado + prémios + viatura + expenses − benefícios</span><span class="v">&nbsp;</span></div>
+        <div class="rline"><span class="k">Contribuição (${cur.stockPlanPct||0}%)</span><span class="v">${eur2(spContrib)}</span></div>
+        <div class="rline"><span class="k">Ganho do desconto (15%)</span><span class="v" style="color:var(--good)">${eur2(spBen)}</span></div>
+      </div>
+    </div>
+
+    ${flexT>0?`
+    <h2 class="title">Benefícios Flex · ${dlabel(cur.date)}</h2>
+    <div class="card">
+      <div class="rows">
+        ${(cur.benefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k">${flexLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join('')}
+        <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total Flex</b></span><span class="v"><b>${eur(flexT)}</b></span></div>
+      </div>
+      <p class="hint" style="margin:8px 0 0">Os Flex saem dos prémios variáveis e reduzem a base do plano de ações.</p>
+    </div>`:''}
+
+    ${cur.plafond?`
+    <h2 class="title">Expenses Allowance · ${dlabel(cur.date)}</h2>
+    <div class="card">
+      <div class="rows">
+        <div class="rline"><span class="k">Plafond anual</span><span class="v">${eur(cur.plafond)}</span></div>
+        ${(cur.expenseBenefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k" style="padding-left:10px">· ${expenseLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join('')}
+        ${expenseBenefitsTotal(cur)?`<div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k">Convertido</span><span class="v">${eur(expenseBenefitsTotal(cur))}</span></div><div class="rline"><span class="k">Por usar</span><span class="v">${eur(cur.plafond-expenseBenefitsTotal(cur))}</span></div>`:''}
+      </div>
     </div>`:''}
 
     <h2 class="title">Revisão · ${dlabel(cur.date)}</h2>
@@ -454,14 +539,18 @@ function renderRevs(){
         </div>
         <div class="detail">
           <div class="rows">
-            <div class="rline"><span class="k">Total fixo</span><span class="v">${eur(fixedTotal(r))}</span></div>
-            ${FIXED_FIELDS.filter(([k])=>r.fixed[k]).map(([k,lbl])=>`<div class="rline"><span class="k" style="padding-left:10px">· ${lbl}</span><span class="v">${eur(r.fixed[k])}</span></div>`).join('')}
+            <div class="rline"><span class="k">Allowances</span><span class="v">${eur(allowanceTotal(r))}</span></div>
+            ${ALLOWANCE_FIELDS.filter(([k])=>r.fixed[k]).map(([k,lbl])=>`<div class="rline"><span class="k" style="padding-left:10px">· ${lbl}</span><span class="v">${eur(r.fixed[k])}</span></div>`).join('')}
+            <div class="rline"><span class="k">Benefícios Fixos</span><span class="v">${eur(fixedBenefTotal(r))}</span></div>
+            ${r.fixed.comms?`<div class="rline"><span class="k" style="padding-left:10px">· Plafond Telemóvel</span><span class="v">${eur(r.fixed.comms)}</span></div>`:''}
+            ${insurancesTotal(r)?`<div class="rline"><span class="k" style="padding-left:10px">· Seguros</span><span class="v">${eur(insurancesTotal(r))}</span></div>`:''}
+            ${stockPlanBenefit(r)?`<div class="rline"><span class="k" style="padding-left:10px">· ${STOCK_PLAN_LABEL} <span class="muted">(ganho 15%)</span></span><span class="v">${eur2(stockPlanBenefit(r))}</span></div>`:''}
             <div class="rline"><span class="k">Variável (revisão)</span><span class="v">${eur(vt)}</span></div>
-            ${r.plafond?`<div class="rline"><span class="k">Plafond despesas</span><span class="v">${eur(r.plafond)}</span></div>`:''}
+            ${flexTotal(r)?`<div class="rline"><span class="k">Benefícios Flex <span class="muted">(dos prémios)</span></span><span class="v">${eur(flexTotal(r))}</span></div>`+(r.benefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k" style="padding-left:10px">· ${flexLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join(''):''}
+            ${stockPlanContribution(r)?`<div class="rline"><span class="k">${STOCK_PLAN_LABEL} — base / contribuição</span><span class="v">${eur(stockPlanBase(r))} · ${eur2(stockPlanContribution(r))} (${r.stockPlanPct||0}%)</span></div>`:''}
+            ${r.plafond?`<div class="rline"><span class="k">Expenses Allowance</span><span class="v">${eur(r.plafond)}</span></div>`+(r.expenseBenefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k" style="padding-left:10px">· ${expenseLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join(''):''}
             <div class="rline"><span class="k">Base + outros (anual)</span><span class="v">${eur(basePlusOther(r))}</span></div>
             <div class="rline"><span class="k"><b>Total compensation</b></span><span class="v"><b>${eur(totalComp(r))}</b></span></div>
-            ${benefitsTotal(r)>0?`<div class="rline"><span class="k">Benefícios convertidos</span><span class="v">${eur(benefitsTotal(r))}</span></div>`+(r.benefits||[]).map(b=>{const tl=(BENEFIT_TYPES.find(t=>t[0]===b.type)||[null,b.type])[1];return `<div class="rline"><span class="k" style="padding-left:10px">· ${tl||'benefício'}</span><span class="v">${eur(b.amount)}</span></div>`;}).join(''):''}
-            ${stockPlanContribution(r)>0?`<div class="rline"><span class="k">Plano de ações (${r.stockPlanPct||0}%)</span><span class="v">${eur2(stockPlanContribution(r))}</span></div><div class="rline"><span class="k" style="padding-left:10px">· benefício (15% desconto)</span><span class="v" style="color:var(--good)">${eur2(stockPlanBenefit(r))}</span></div>`:''}
           </div>
           ${tags?`<div class="tags">${tags}</div>`:''}
           <div class="editbtns">
@@ -489,63 +578,113 @@ function buildForm(){
       </div>
       <div class="field"><label>Banding / Outcome (opcional)</label><input type="text" id="f-band" placeholder="ex: Talent Priority"></div>
 
-      <div class="sectitle">Outros (Fixo) — anual</div>
-      ${FIXED_FIELDS.map(([k,lbl])=>`<div class="field"><label>${lbl}</label><input type="number" inputmode="decimal" id="fx-${k}" placeholder="€"></div>`).join('')}
+      <div class="sectitle">Allowances — anual</div>
+      ${ALLOWANCE_FIELDS.map(([k,lbl])=>`<div class="field"><label>${lbl}</label><input type="number" inputmode="decimal" id="fx-${k}" placeholder="€"></div>`).join('')}
 
-      <div class="sectitle">Outros (Variável) — desta revisão</div>
-      <p class="hint">Vários prémios no mesmo ano são somados automaticamente no resumo anual.</p>
-      ${VAR_FIELDS.map(([k,lbl])=>`<div class="field"><label>${lbl}</label><input type="number" inputmode="decimal" id="vr-${k}" placeholder="€"></div>`).join('')}
+      <div class="sectitle">Benefícios Fixos — anual</div>
+      ${BENEFIT_FIELDS.map(([k,lbl])=>`<div class="field"><label>${lbl}</label><input type="number" inputmode="decimal" id="fx-${k}" placeholder="€"></div>`).join('')}
+      <div class="field"><label>${STOCK_PLAN_LABEL} — % alocada (PAAT)</label><input type="number" inputmode="decimal" id="f-stockpct" placeholder="${STOCK_PLAN_DEFAULT_PCT}" value="${STOCK_PLAN_DEFAULT_PCT}"></div>
+      <p class="hint" style="margin-top:-6px">10% do que recebes em conta: ordenado + prémios + viatura + Expenses Allowance − todos os benefícios convertidos. Ações compradas a −15%. O valor é calculado.</p>
+      <div class="computed" id="f-stock"></div>
 
-      <div class="sectitle">Plafond de despesas</div>
-      <p class="hint">Estimativa anual (~3.000 €). Deixa a 0 se não aplicável.</p>
-      <div class="field"><label>Plafond (anual)</label><input type="number" inputmode="decimal" id="f-plafond" placeholder="€"></div>
+      <div class="sectitle">Variável — prémios desta revisão</div>
+      <p class="hint">Adiciona só os prémios que se aplicam. Vários prémios no mesmo ano são somados no resumo anual.</p>
+      <div id="var-list"></div>
+      <button class="btn ghost sm" type="button" onclick="addVarRow()" style="margin-bottom:6px">+ Adicionar prémio</button>
 
-      <div class="sectitle">Benefícios convertidos</div>
-      <p class="hint">Parte da componente variável que retiraste em benefícios líquidos (leasing, cheques-creche, etc.). Reduz a base do plano de ações.</p>
-      <div id="benefits-list"></div>
-      <button class="btn ghost sm" type="button" onclick="addBenefitRow()" style="margin-bottom:6px">+ Adicionar benefício</button>
+      <div class="sectitle">Benefícios Flex — sobre os prémios</div>
+      <p class="hint">Parte dos prémios que retiras em benefícios líquidos (leasing, cheques-creche, etc.). Reduz a base do plano de ações.</p>
+      <div id="flex-list"></div>
+      <button class="btn ghost sm" type="button" onclick="addFlexRow()" style="margin-bottom:6px">+ Adicionar benefício Flex</button>
 
-      <div class="sectitle">Plano de ações</div>
-      <p class="hint">% do vencimento que alocas ao plano. O benefício é (base anual + prémios + viatura − benefícios) × % × 15% de desconto.</p>
-      <div class="field"><label>% alocada ao plano</label><input type="number" inputmode="decimal" id="f-stockpct" placeholder="10" value="10"></div>
+      <div class="sectitle">Expenses Allowance</div>
+      <p class="hint">Plafond anual de despesas (~3.000 €). Deixa a 0 se não aplicável.</p>
+      <div class="field"><label>Expenses Allowance (anual)</label><input type="number" inputmode="decimal" id="f-plafond" placeholder="€"></div>
+      <p class="hint">Conversões em benefícios (Galp Frota, Faturas Restauração, …). Não alteram o total, mas reduzem a base do plano de ações (não as recebes em conta).</p>
+      <div id="expense-list"></div>
+      <button class="btn ghost sm" type="button" onclick="addExpenseRow()" style="margin-bottom:6px">+ Adicionar conversão</button>
 
       <div class="computed" id="f-computed"></div>
       <button class="btn primary" id="f-save" onclick="saveForm()">Guardar revisão</button>
       <button class="btn ghost" style="margin-top:10px" id="f-cancel" onclick="cancelEdit()" hidden>Cancelar edição</button>
     </div>
   `;
-  ['f-base',...FIXED_FIELDS.map(([k])=>'fx-'+k),...VAR_FIELDS.map(([k])=>'vr-'+k),'f-plafond','f-stockpct']
+  ['f-base',...ALLOWANCE_FIELDS.map(([k])=>'fx-'+k),...BENEFIT_FIELDS.map(([k])=>'fx-'+k),'f-plafond','f-stockpct']
     .forEach(id=>document.getElementById(id).addEventListener('input',updateComputed));
 }
 
-/* ---- Benefícios (form) ---- */
-const BENEFIT_TYPES = [
-  ['','—'],
-  ['leasing','Viatura em leasing'],
-  ['chequesCreche','Cheques-creche'],
-  ['pension','PPR / pensão'],
-  ['equipment','Equipamento'],
-  ['other','Outro'],
-];
-function benefitRowHTML(b){
-  b=b||{type:'',amount:''};
+/* ---- Variável: linhas de prémio dinâmicas (form) ---- */
+function varRowHTML(k,amount){
   return `<div class="benefit-row">
-    <div class="field"><label>Tipo</label><select class="b-type">${BENEFIT_TYPES.map(([v,l])=>`<option value="${v}" ${b.type===v?'selected':''}>${l}</option>`).join('')}</select></div>
-    <div class="field"><label>Valor (€)</label><input type="number" inputmode="decimal" class="b-amount" placeholder="€" value="${b.amount!==''&&b.amount!=null?b.amount:''}"></div>
+    <div class="field"><label>Prémio</label><select class="v-type">${VAR_FIELDS.map(([v,l])=>`<option value="${v}" ${k===v?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="field"><label>Valor (€)</label><input type="number" inputmode="decimal" class="v-amount" placeholder="€" value="${amount!==''&&amount!=null?amount:''}"></div>
     <button type="button" class="delb" onclick="this.closest('.benefit-row').remove();updateComputed()">🗑</button>
   </div>`;
 }
-function addBenefitRow(b){
-  document.getElementById('benefits-list').insertAdjacentHTML('beforeend', benefitRowHTML(b));
-  const rows=document.querySelectorAll('#benefits-list .benefit-row');
+function addVarRow(k,amount){
+  // se não vier tipo, escolhe o primeiro do catálogo ainda não usado
+  if(!k){
+    const used=new Set([...document.querySelectorAll('#var-list .v-type')].map(s=>s.value));
+    k=(VAR_FIELDS.find(([v])=>!used.has(v))||VAR_FIELDS[0])[0];
+  }
+  document.getElementById('var-list').insertAdjacentHTML('beforeend', varRowHTML(k,amount));
+  const rows=document.querySelectorAll('#var-list .benefit-row');
   const last=rows[rows.length-1];
   last.querySelectorAll('select,input').forEach(e=>e.addEventListener('input',updateComputed));
   updateComputed();
 }
-function readBenefits(){
-  return [...document.querySelectorAll('#benefits-list .benefit-row')].map(row=>({
+function readVariable(){
+  const variable={};
+  VAR_FIELDS.forEach(([k])=> variable[k]=0);
+  [...document.querySelectorAll('#var-list .benefit-row')].forEach(row=>{
+    const k=row.querySelector('.v-type').value;
+    const amt=+row.querySelector('.v-amount').value||0;
+    if(k) variable[k]=(variable[k]||0)+amt; // mesmo tipo repetido → soma
+  });
+  return variable;
+}
+/* ---- Benefícios Flex (form) ---- */
+function flexRowHTML(b){
+  b=b||{type:'',amount:''};
+  return `<div class="benefit-row">
+    <div class="field"><label>Tipo</label><select class="b-type">${FLEX_TYPES.map(([v,l])=>`<option value="${v}" ${b.type===v?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="field"><label>Valor (€)</label><input type="number" inputmode="decimal" class="b-amount" placeholder="€" value="${b.amount!==''&&b.amount!=null?b.amount:''}"></div>
+    <button type="button" class="delb" onclick="this.closest('.benefit-row').remove();updateComputed()">🗑</button>
+  </div>`;
+}
+function addFlexRow(b){
+  document.getElementById('flex-list').insertAdjacentHTML('beforeend', flexRowHTML(b));
+  const rows=document.querySelectorAll('#flex-list .benefit-row');
+  const last=rows[rows.length-1];
+  last.querySelectorAll('select,input').forEach(e=>e.addEventListener('input',updateComputed));
+  updateComputed();
+}
+function readFlex(){
+  return [...document.querySelectorAll('#flex-list .benefit-row')].map(row=>({
     type: row.querySelector('.b-type').value,
     amount: +row.querySelector('.b-amount').value||0,
+  })).filter(b=>b.amount>0 || b.type);
+}
+/* ---- Conversões do Expenses Allowance (form) ---- */
+function expenseRowHTML(b){
+  b=b||{type:'',amount:''};
+  return `<div class="benefit-row">
+    <div class="field"><label>Tipo</label><select class="e-type">${EXPENSE_TYPES.map(([v,l])=>`<option value="${v}" ${b.type===v?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="field"><label>Valor (€)</label><input type="number" inputmode="decimal" class="e-amount" placeholder="€" value="${b.amount!==''&&b.amount!=null?b.amount:''}"></div>
+    <button type="button" class="delb" onclick="this.closest('.benefit-row').remove();updateComputed()">🗑</button>
+  </div>`;
+}
+function addExpenseRow(b){
+  document.getElementById('expense-list').insertAdjacentHTML('beforeend', expenseRowHTML(b));
+  const rows=document.querySelectorAll('#expense-list .benefit-row');
+  const last=rows[rows.length-1];
+  last.querySelectorAll('select,input').forEach(e=>e.addEventListener('input',updateComputed));
+  updateComputed();
+}
+function readExpenses(){
+  return [...document.querySelectorAll('#expense-list .benefit-row')].map(row=>({
+    type: row.querySelector('.e-type').value,
+    amount: +row.querySelector('.e-amount').value||0,
   })).filter(b=>b.amount>0 || b.type);
 }
 function fillForm(r){
@@ -553,41 +692,45 @@ function fillForm(r){
   document.getElementById('f-level').value = r? r.level : 'M';
   document.getElementById('f-base').value = r? r.baseMonthly : '';
   document.getElementById('f-band').value = r? r.banding : '';
-  FIXED_FIELDS.forEach(([k])=> document.getElementById('fx-'+k).value = r? (r.fixed[k]||'') : '');
-  VAR_FIELDS.forEach(([k])=> document.getElementById('vr-'+k).value = r? (r.variable[k]||'') : '');
+  [...ALLOWANCE_FIELDS,...BENEFIT_FIELDS].forEach(([k])=> document.getElementById('fx-'+k).value = r? (r.fixed[k]||'') : '');
   document.getElementById('f-plafond').value = r? (r.plafond||'') : '';
-  document.getElementById('f-stockpct').value = r? (r.stockPlanPct!=null?r.stockPlanPct:10) : 10;
-  const bl=document.getElementById('benefits-list'); bl.innerHTML='';
-  if(r && r.benefits && r.benefits.length){ r.benefits.forEach(b=>addBenefitRow(b)); }
+  document.getElementById('f-stockpct').value = r? (r.stockPlanPct!=null?r.stockPlanPct:STOCK_PLAN_DEFAULT_PCT) : STOCK_PLAN_DEFAULT_PCT;
+  const vl=document.getElementById('var-list'); vl.innerHTML='';
+  if(r){ VAR_FIELDS.forEach(([k])=>{ if(r.variable[k]) addVarRow(k, r.variable[k]); }); }
+  const fl=document.getElementById('flex-list'); fl.innerHTML='';
+  if(r && r.benefits && r.benefits.length){ r.benefits.forEach(b=>addFlexRow(b)); }
+  const xl=document.getElementById('expense-list'); xl.innerHTML='';
+  if(r && r.expenseBenefits && r.expenseBenefits.length){ r.expenseBenefits.forEach(b=>addExpenseRow(b)); }
   updateComputed();
 }
 function resetForm(){
   editIndex=null;
   document.getElementById('f-save').textContent='Guardar revisão';
   document.getElementById('f-cancel').hidden=true;
-  // pré-preencher fixo/plafond/nível com a última revisão (carregam valores que não mudaram)
+  // pré-preencher allowances/benefícios/plafond/nível com a última revisão (valores que não mudam)
   const last = DATA[DATA.length-1];
   if(last){
     fillForm(last);
     document.getElementById('f-date').value='';
     document.getElementById('f-band').value='';
-    VAR_FIELDS.forEach(([k])=> document.getElementById('vr-'+k).value='');
-    document.getElementById('benefits-list').innerHTML=''; // benefícios são por revisão
+    document.getElementById('var-list').innerHTML='';  // prémios são por revisão
+    document.getElementById('flex-list').innerHTML=''; // Flex são por revisão
+    document.getElementById('expense-list').innerHTML=''; // conversões são por revisão
     updateComputed();
   } else { fillForm(null); }
 }
 function readForm(){
-  const fixed={}, variable={};
-  FIXED_FIELDS.forEach(([k])=> fixed[k]= +document.getElementById('fx-'+k).value||0);
-  VAR_FIELDS.forEach(([k])=> variable[k]= +document.getElementById('vr-'+k).value||0);
+  const fixed={};
+  [...ALLOWANCE_FIELDS,...BENEFIT_FIELDS].forEach(([k])=> fixed[k]= +document.getElementById('fx-'+k).value||0);
   return {
     date: document.getElementById('f-date').value,
     level: document.getElementById('f-level').value,
     banding: document.getElementById('f-band').value.trim(),
     baseMonthly: +document.getElementById('f-base').value||0,
-    fixed, variable,
+    fixed, variable: readVariable(),
     plafond: +document.getElementById('f-plafond').value||0,
-    benefits: readBenefits(),
+    benefits: readFlex(),
+    expenseBenefits: readExpenses(),
     stockPlanPct: +document.getElementById('f-stockpct').value||0,
   };
 }
@@ -599,16 +742,21 @@ function updateComputed(){
   else prev = DATA[DATA.length-1] && editIndex===null ? DATA[DATA.length-1] : (editIndex>0?DATA[editIndex-1]:null);
   const dM = prev ? r.baseMonthly - prev.baseMonthly : 0;
   const pM = prev && prev.baseMonthly ? dM/prev.baseMonthly : 0;
-  const benT = benefitsTotal(r);
+  const flexT = flexTotal(r);
   const spBase = stockPlanBase(r);
   const spContrib = stockPlanContribution(r);
   const spBen = stockPlanBenefit(r);
+  // resumo do plano de ações (junto ao campo da %)
+  const sb=document.getElementById('f-stock');
+  if(sb) sb.innerHTML =
+    `Base: <b>${eur(spBase)}</b> &nbsp;·&nbsp; contribuição (${r.stockPlanPct||0}%): <b>${eur2(spContrib)}</b><br>`+
+    `Ganho do desconto 15%: <b style="color:var(--good)">${eur2(spBen)}</b>`;
   document.getElementById('f-computed').innerHTML =
     `Salário anual: <b>${eur(r.baseMonthly*MONTHS_PER_YEAR)}</b><br>`+
     `Aumento base vs revisão anterior: <b>${prev?(dM>=0?'+':'')+eur(dM)+' · '+pct(pM):'—'}</b><br>`+
-    `Total fixo: <b>${eur(FIXED_FIELDS.reduce((s,[k])=>s+(r.fixed[k]||0),0))}</b> · Variável: <b>${eur(VAR_FIELDS.reduce((s,[k])=>s+(r.variable[k]||0),0))}</b>`+
-    (benT>0?`<br>Benefícios convertidos: <b>${eur(benT)}</b>`:'')+
-    `<br>Plano de ações — base: <b>${eur(spBase)}</b> · contribuição (${r.stockPlanPct||0}%): <b>${eur2(spContrib)}</b> · benefício (15%): <b>${eur2(spBen)}</b>`;
+    `Allowances: <b>${eur(allowanceTotal(r))}</b> · Benef. Fixos: <b>${eur(fixedBenefTotal(r))}</b> · Variável: <b>${eur(varTotal(r))}</b>`+
+    (flexT>0?` · Flex: <b>${eur(flexT)}</b>`:'')+`<br>`+
+    `<b>Total compensation: ${eur(totalComp(r))}</b>`;
 }
 function saveForm(){
   const r = readForm();
@@ -638,8 +786,13 @@ function delRev(i){
 }
 
 /* =================== FILTROS (gráficos) =================== */
-const EXCLUDABLE = [...FIXED_FIELDS.map(([k,l])=>['fixed',k,l]), ...VAR_FIELDS.map(([k,l])=>['var',k,l])];
-let excluded = new Set(); // chaves "fixed:car", "var:oneShot", ...
+const EXCLUDABLE = [
+  ...ALLOWANCE_FIELDS.map(([k,l])=>['allow',k,l]),
+  ...BENEFIT_FIELDS.map(([k,l])=>['benef',k,l]),
+  ['stock','plan',STOCK_PLAN_LABEL],
+  ...VAR_FIELDS.map(([k,l])=>['var',k,l]),
+];
+let excluded = new Set(); // chaves "allow:car", "benef:comms", "stock:plan", "var:oneShot", ...
 const exKey = (g,k)=> g+':'+k;
 function toggleFilter(g,k){
   const key=exKey(g,k);
@@ -667,8 +820,11 @@ function renderFilters(){
   (excluded.size?`<span class="fchip" style="color:var(--bad);border-color:rgba(251,113,133,.4)" onclick="clearFilters()">↺ limpar (${excluded.size})</span>`:'');
 }
 // totais respeitando filtros
-const fixedTotalF = r => FIXED_FIELDS.reduce((s,[k])=> excluded.has(exKey('fixed',k))?s:s+(r.fixed[k]||0), 0);
-const varTotalF   = r => VAR_FIELDS.reduce((s,[k])=> excluded.has(exKey('var',k))?s:s+(r.variable[k]||0), 0);
+const allowanceTotalF = r => ALLOWANCE_FIELDS.reduce((s,[k])=> excluded.has(exKey('allow',k))?s:s+(r.fixed[k]||0), 0);
+const benefManualF    = r => BENEFIT_FIELDS.reduce((s,[k])=> excluded.has(exKey('benef',k))?s:s+(r.fixed[k]||0), 0);
+const stockF          = r => excluded.has(exKey('stock','plan')) ? 0 : stockPlanBenefit(r);
+const benefitsTotalF  = r => benefManualF(r) + stockF(r);
+const varTotalF       = r => VAR_FIELDS.reduce((s,[k])=> excluded.has(exKey('var',k))?s:s+(r.variable[k]||0), 0);
 /* byYear filtrado para os gráficos */
 function byYearF(){
   const map=new Map();
@@ -677,10 +833,11 @@ function byYearF(){
   for(const {year,revs} of map.values()){
     const last=revs[revs.length-1];
     const variableYear=revs.reduce((s,r)=>s+varTotalF(r),0);
-    const fx=fixedTotalF(last);
+    const allow=allowanceTotalF(last);
+    const benef=benefitsTotalF(last);
     out.push({year,revs,last,baseMonthly:last.baseMonthly,annualBase:annualBase(last),
-      fixed:fx,variable:variableYear,plafond:last.plafond||0,
-      total:annualBase(last)+fx+variableYear+(last.plafond||0)});
+      allowances:allow,benefits:benef,variable:variableYear,plafond:last.plafond||0,
+      total:annualBase(last)+allow+benef+variableYear+(last.plafond||0)});
   }
   out.sort((a,b)=>a.year-b.year);
   return out;
@@ -713,29 +870,38 @@ function renderCharts(){
   });
 
   const yrs=byYearF();
-  const fixedBreakdown = i => FIXED_FIELDS.filter(([k])=>!excluded.has(exKey('fixed',k)) && yrs[i].last.fixed[k])
+  const allowBreakdown = i => ALLOWANCE_FIELDS.filter(([k])=>!excluded.has(exKey('allow',k)) && yrs[i].last.fixed[k])
         .map(([k,lbl])=>'   · '+lbl+': '+eur(yrs[i].last.fixed[k]));
+  const benefBreakdown = i => {
+    const last=yrs[i].last, out=[];
+    BENEFIT_FIELDS.forEach(([k,lbl])=>{ if(!excluded.has(exKey('benef',k)) && last.fixed[k]) out.push('   · '+lbl+': '+eur(last.fixed[k])); });
+    if(!excluded.has(exKey('stock','plan')) && stockPlanBenefit(last)) out.push('   · '+STOCK_PLAN_LABEL+' (ganho): '+eur2(stockPlanBenefit(last)));
+    return out;
+  };
 
   // 2) total compensation por ano — empilhado, com tooltips detalhados
   charts.total = new Chart(document.getElementById('c-total'),{
     type:'bar',
     data:{labels:yrs.map(y=>y.year),
       datasets:[
-        {label:'Base',    kind:'base',    data:yrs.map(y=>y.annualBase), backgroundColor:'#3b82f6'},
-        {label:'Fixo',    kind:'fixo',    data:yrs.map(y=>y.fixed),      backgroundColor:'#8b5cf6'},
-        {label:'Variável',kind:'var',     data:yrs.map(y=>y.variable),   backgroundColor:'#4ade80'},
-        {label:'Plafond', kind:'plafond', data:yrs.map(y=>y.plafond),    backgroundColor:'#fbbf24'},
+        {label:'Base',      kind:'base',  data:yrs.map(y=>y.annualBase), backgroundColor:'#3b82f6'},
+        {label:'Allowances',kind:'allow', data:yrs.map(y=>y.allowances), backgroundColor:'#8b5cf6'},
+        {label:'Benef. Fixos',kind:'benef', data:yrs.map(y=>y.benefits),   backgroundColor:'#22d3ee'},
+        {label:'Variável',  kind:'var',   data:yrs.map(y=>y.variable),   backgroundColor:'#4ade80'},
+        {label:'Expenses',  kind:'plafond',data:yrs.map(y=>y.plafond),   backgroundColor:'#fbbf24'},
       ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend,tooltip:{
         filter:item=>item.parsed.y!==0,
         callbacks:{
           label:ctx=>{const y=yrs[ctx.dataIndex],k=ctx.dataset.kind;
-            if(k==='base') return ' Base: '+eur(y.annualBase)+'  ('+eur(y.baseMonthly)+'/mês)';
-            if(k==='fixo') return ' Fixo: '+eur(y.fixed);
-            if(k==='var')  return ' Variável: '+eur(y.variable);
-            return ' Plafond: '+eur(y.plafond);},
-          afterLabel:ctx=> ctx.dataset.kind==='fixo' ? fixedBreakdown(ctx.dataIndex) : '',
+            if(k==='base')  return ' Base: '+eur(y.annualBase)+'  ('+eur(y.baseMonthly)+'/mês)';
+            if(k==='allow') return ' Allowances: '+eur(y.allowances);
+            if(k==='benef') return ' Benef. Fixos: '+eur(y.benefits);
+            if(k==='var')   return ' Variável: '+eur(y.variable);
+            return ' Expenses Allowance: '+eur(y.plafond);},
+          afterLabel:ctx=> ctx.dataset.kind==='allow' ? allowBreakdown(ctx.dataIndex)
+                         : ctx.dataset.kind==='benef' ? benefBreakdown(ctx.dataIndex) : '',
           footer:items=>'Total: '+eur(yrs[items[0].dataIndex].total)}}},
       scales:{x:{stacked:true,grid,ticks:tick},y:{stacked:true,grid,ticks:{...tick,callback:v=>(v/1000)+'k'}}}}
   });
