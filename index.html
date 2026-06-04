@@ -441,11 +441,12 @@ function renderResumo(){
 
   const benT = fixedBenefTotal(cur);
   const flexT = flexTotal(cur);
+  const expBen = expenseBenefitsTotal(cur);
   const spContrib = stockPlanContribution(cur);
   const spBen = stockPlanBenefit(cur);
   const totalC = yr ? yr.total : totalComp(cur);
   const varAno = yr ? yr.variable : varTotal(cur);
-  const naoTributavel = (cur.fixed.lunch||0) + benT + flexT; // almoço + benef. fixos + flex
+  const naoTributavel = (cur.fixed.lunch||0) + benT + flexT + expBen; // almoço + benef. fixos + flex + utilização do plafond
   const tributavel = totalC - naoTributavel;
 
   el.innerHTML = navBar + `
@@ -532,8 +533,10 @@ function renderResumo(){
         <div class="rows">
           <div class="rline"><span class="k">Salário base (anual)</span><span class="v">${eur(annualBase(cur))}</span></div>
           ${cur.fixed.car?`<div class="rline"><span class="k">Car Allowance</span><span class="v">${eur(cur.fixed.car)}</span></div>`:''}
-          <div class="rline"><span class="k">Variável${flexT?` <span class="muted" style="font-weight:400">(líq. Flex)</span>`:''}</span><span class="v">${eur(varAno-flexT)}</span></div>
+          <div class="rline"><span class="k">Variável</span><span class="v">${eur(varAno)}</span></div>
           ${cur.plafond?`<div class="rline"><span class="k">Expenses Allowance</span><span class="v">${eur(cur.plafond)}</span></div>`:''}
+          ${flexT?`<div class="rline"><span class="k" style="color:var(--mut)">− Utilização de Flex</span><span class="v" style="color:var(--mut);font-weight:500">−${eur(flexT)}</span></div>`:''}
+          ${expBen?`<div class="rline"><span class="k" style="color:var(--mut)">− Utilização do Expenses Allowance</span><span class="v" style="color:var(--mut);font-weight:500">−${eur(expBen)}</span></div>`:''}
           <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total sujeito a impostos</b></span><span class="v"><b>${eur(tributavel)}</b></span></div>
         </div>
       </div>
@@ -547,7 +550,8 @@ function renderResumo(){
         <div class="rows">
           ${cur.fixed.lunch?`<div class="rline"><span class="k">Lunch Allowance</span><span class="v">${eur(cur.fixed.lunch)}</span></div>`:''}
           <div class="rline"><span class="k">Benefícios Fixos</span><span class="v">${eur(benT)}</span></div>
-          ${flexT?`<div class="rline"><span class="k">Benefícios Flex</span><span class="v">${eur(flexT)}</span></div>`:''}
+          ${flexT?`<div class="rline"><span class="k">Utilização de Flex</span><span class="v">${eur(flexT)}</span></div>`:''}
+          ${expBen?`<div class="rline"><span class="k">Utilização do Expenses Allowance</span><span class="v">${eur(expBen)}</span></div>`:''}
           <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total não sujeito a impostos</b></span><span class="v"><b>${eur(naoTributavel)}</b></span></div>
         </div>
       </div>
