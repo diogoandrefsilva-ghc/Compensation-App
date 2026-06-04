@@ -121,6 +121,13 @@ nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width
 .benefit-row .delb{background:rgba(251,113,133,.16);color:var(--bad);border:none;border-radius:10px;width:44px;height:46px;font-size:16px;cursor:pointer}
 .benefit-row .field{margin-bottom:0}
 small.foot{display:block;text-align:center;color:var(--mut);font-size:11px;margin-top:18px}
+/* bloco de cálculo colapsável */
+details.calc{padding:0}
+details.calc>summary{cursor:pointer;list-style:none;padding:12px 16px;font-size:12.5px;font-weight:600;color:var(--mut);display:flex;justify-content:space-between;align-items:center}
+details.calc>summary::-webkit-details-marker{display:none}
+details.calc>summary .chev{transition:transform .2s;color:var(--mut)}
+details.calc[open]>summary .chev{transform:rotate(180deg)}
+details.calc .cbody{padding:0 16px 14px}
 </style>
 </head>
 <body>
@@ -439,7 +446,7 @@ function renderResumo(){
 
     <div class="grid2">
       <div class="card kpi"><div class="lbl">Variável ${curYear}</div><div class="val">${eur(yr?yr.variable:varTotal(cur))}</div><div class="note">soma dos prémios do ano</div></div>
-      <div class="card kpi"><div class="lbl">${STOCK_PLAN_LABEL} (ganho)</div><div class="val">${eur(spBen)}</div><div class="note">${cur.stockPlanPct||0}% × 15% desconto</div></div>
+      <div class="card kpi"><div class="lbl">Expenses Allowance</div><div class="val">${eur(cur.plafond||0)}</div><div class="note">plafond de despesas</div></div>
     </div>
 
     <div class="card hero" style="margin-top:2px">
@@ -457,16 +464,17 @@ function renderResumo(){
         <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total benefícios fixos</b></span><span class="v"><b>${eur(benT)}</b></span></div>
       </div>
     </div>
-
-    <h2 class="title">${STOCK_PLAN_LABEL} (PAAT) · ${dlabel(cur.date)}</h2>
-    <div class="card">
-      <div class="rows">
-        <div class="rline"><span class="k">Base de cálculo</span><span class="v">${eur(stockPlanBase(cur))}</span></div>
-        <div class="rline"><span class="k" style="padding-left:10px;font-size:12px">ordenado + prémios + viatura + expenses − benefícios</span><span class="v">&nbsp;</span></div>
-        <div class="rline"><span class="k">Contribuição (${cur.stockPlanPct||0}%)</span><span class="v">${eur2(spContrib)}</span></div>
-        <div class="rline"><span class="k">Ganho do desconto (15%)</span><span class="v" style="color:var(--good)">${eur2(spBen)}</span></div>
+    <details class="card calc">
+      <summary>Como se calcula o ${STOCK_PLAN_LABEL} <span class="chev">▾</span></summary>
+      <div class="cbody">
+        <div class="rows">
+          <div class="rline"><span class="k">Base (em conta)</span><span class="v">${eur(stockPlanBase(cur))}</span></div>
+          <div class="rline"><span class="k" style="padding-left:10px;font-size:12px">ordenado + prémios + viatura + expenses − benefícios</span><span class="v">&nbsp;</span></div>
+          <div class="rline"><span class="k">Contribuição (${cur.stockPlanPct||0}%)</span><span class="v">${eur2(spContrib)}</span></div>
+          <div class="rline"><span class="k">Ganho do desconto (15%)</span><span class="v" style="color:var(--good)">${eur2(spBen)}</span></div>
+        </div>
       </div>
-    </div>
+    </details>
 
     ${flexT>0?`
     <h2 class="title">Benefícios Flex · ${dlabel(cur.date)}</h2>
