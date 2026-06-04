@@ -97,6 +97,24 @@ nav button.active{color:var(--acc)}
 nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9}
 .muted{color:var(--mut)}
 .center{text-align:center}
+/* navegador do resumo */
+.rnav{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 10px;margin-bottom:12px}
+.rnav button{background:var(--pill);border:none;color:var(--txt);width:40px;height:40px;border-radius:11px;font-size:20px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.rnav button:disabled{opacity:.32;cursor:default}
+.rnav .mid{flex:1;text-align:center;line-height:1.2}
+.rnav .mid .d{font-size:15px;font-weight:800}
+.rnav .mid .s{font-size:11px;color:var(--mut);margin-top:1px}
+.rnav .latest{font-size:10px;color:var(--acc);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+/* filtros de gráficos */
+.filters{display:flex;flex-wrap:wrap;gap:7px;margin:4px 2px 12px}
+.fchip{font-size:12px;font-weight:600;background:var(--pill);color:var(--mut);border:1px solid var(--line);padding:6px 11px;border-radius:999px;cursor:pointer;user-select:none;transition:.15s}
+.fchip.on{background:rgba(110,168,255,.16);color:var(--acc);border-color:rgba(110,168,255,.4)}
+.fchip .x{font-size:10px;margin-left:4px;opacity:.6}
+.frow-actions{display:flex;gap:8px;margin:2px 2px 12px}
+/* benefícios no form */
+.benefit-row{display:grid;grid-template-columns:1.2fr 1fr auto;gap:8px;align-items:end;margin-bottom:9px}
+.benefit-row .delb{background:rgba(251,113,133,.16);color:var(--bad);border:none;border-radius:10px;width:44px;height:46px;font-size:16px;cursor:pointer}
+.benefit-row .field{margin-bottom:0}
 small.foot{display:block;text-align:center;color:var(--mut);font-size:11px;margin-top:18px}
 </style>
 </head>
@@ -111,6 +129,9 @@ small.foot{display:block;text-align:center;color:var(--mut);font-size:11px;margi
   <section id="view-resumo" class="active"></section>
   <!-- EVOLUÇÃO -->
   <section id="view-evol">
+    <h2 class="title">Filtros</h2>
+    <p class="hint" style="margin-top:0">Toca para excluir itens da análise. Afeta todos os gráficos.</p>
+    <div class="filters" id="evol-filters"></div>
     <h2 class="title">Salário base mensal</h2>
     <div class="card"><div class="chartbox"><canvas id="c-base"></canvas></div></div>
     <h2 class="title">Total compensation por ano</h2>
@@ -219,6 +240,12 @@ function normalize(){
     // plafond passou a ser um valor único (estimativa bruta ~3.000€); aceita dados antigos
     r.plafond = +(r.plafond != null ? r.plafond : r.plafondGross) || 0;
     delete r.plafondNet; delete r.plafondGross;
+    // benefícios: parte da variável convertida em benefícios líquidos (leasing, cheques-creche, etc.)
+    r.benefits = Array.isArray(r.benefits) ? r.benefits.map(b=>({
+      type: b.type||'', amount: +b.amount||0
+    })) : [];
+    // plano de ações: % do vencimento alocada (default 10%)
+    r.stockPlanPct = (r.stockPlanPct != null ? +r.stockPlanPct : 10) || 0;
   });
   DATA.sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 }
@@ -230,6 +257,13 @@ const varTotal   = r => VAR_FIELDS.reduce((s,[k])=> s + (r.variable[k]||0), 0);
 const basePlusOther = r => annualBase(r) + fixedTotal(r) + varTotal(r);
 const totalComp = r => basePlusOther(r) + (r.plafond||0);
 const yearOf = r => r.date.slice(0,4);
+const benefitsTotal = r => (r.benefits||[]).reduce((s,b)=> s + (+b.amount||0), 0);
+const STOCK_DISCOUNT = 0.15; // desconto sobre o preço de mercado das ações
+/* base de cálculo do plano de ações:
+   base anual + prémios anuais (variável) + prémio do carro − valor alocado em benefícios */
+const stockPlanBase = r => Math.max(0, annualBase(r) + varTotal(r) + (r.fixed.car||0) - benefitsTotal(r));
+const stockPlanContribution = r => stockPlanBase(r) * ((r.stockPlanPct||0)/100); // valor de desconto p/ o plano
+const stockPlanBenefit = r => stockPlanContribution(r) * STOCK_DISCOUNT;        // poupança por ter o plano ativo
 
 /* agrega por ano segundo as regras: base/fixo/plafond = última revisão; variável = soma do ano */
 function byYear(){
@@ -281,39 +315,64 @@ function nav(v){
   document.getElementById('hdr-title').textContent = HDR[v][0];
   document.getElementById('hdr-sub').textContent = HDR[v][1];
   window.scrollTo(0,0);
-  if(v==='evol') renderCharts();
+  if(v==='evol'){ renderFilters(); renderCharts(); }
   if(v==='form' && editIndex===null) resetForm();
 }
 
 /* =================== RESUMO =================== */
+let resumoIdx = null; // índice da revisão em foco; null = última
+function resumoStep(delta){
+  if(!DATA.length) return;
+  let i = resumoIdx===null ? DATA.length-1 : resumoIdx;
+  i = Math.max(0, Math.min(DATA.length-1, i+delta));
+  resumoIdx = i;
+  renderResumo();
+}
+function resumoLatest(){ resumoIdx=null; renderResumo(); }
 function renderResumo(){
   const el = document.getElementById('view-resumo');
   if(!DATA.length){ el.innerHTML='<div class="card center"><p style="font-size:34px;margin:6px 0">📥</p><p>Ainda não há dados neste dispositivo.</p><p class="muted" style="font-size:13px">Vai a <b>Backup</b> e importa o teu ficheiro JSON, ou regista a primeira revisão em <b>Nova</b>.</p><button class="btn primary" style="margin-top:10px" onclick="nav(\'backup\')">Ir para Backup</button></div>'; return; }
-  const cur = DATA[DATA.length-1];
-  const prev = DATA.length>1 ? DATA[DATA.length-2] : null;
+  const idx = resumoIdx===null ? DATA.length-1 : resumoIdx;
+  const isLatest = idx===DATA.length-1;
+  const cur = DATA[idx];
+  const prev = idx>0 ? DATA[idx-1] : null;
   const lv = levelByCode(cur.level);
   const dM = prev ? cur.baseMonthly - prev.baseMonthly : 0;
   const pM = prev && prev.baseMonthly ? dM/prev.baseMonthly : 0;
   const cls = dM>0?'up':dM<0?'down':'flat';
   const arrow = dM>0?'▲':dM<0?'▼':'■';
 
-  // ano corrente
+  // ano da revisão em foco
   const curYear = yearOf(cur);
   const yrs = byYear();
   const yr = yrs.find(y=>y.year===curYear);
   const raisesThisYear = DATA.filter(r=>yearOf(r)===curYear).length;
 
-  // total ganho desde sempre (soma base+outros de cada revisão, snapshot anualizado)
-  el.innerHTML = `
+  const navBar = `
+    <div class="rnav">
+      <button onclick="resumoStep(-1)" ${idx===0?'disabled':''} aria-label="Anterior">‹</button>
+      <div class="mid">
+        <div class="d">${dlabel(cur.date)}</div>
+        <div class="s">${lv.name}${isLatest?' · <span class="latest">atual</span>':` · revisão ${idx+1} de ${DATA.length}`}</div>
+      </div>
+      <button onclick="resumoStep(1)" ${idx===DATA.length-1?'disabled':''} aria-label="Seguinte">›</button>
+    </div>
+    ${!isLatest?`<div class="frow-actions"><button class="btn ghost sm" style="width:100%" onclick="resumoLatest()">↩ Voltar à revisão atual</button></div>`:''}`;
+
+  const benT = benefitsTotal(cur);
+  const stockContrib = stockPlanContribution(cur);
+  const stockBen = stockPlanBenefit(cur);
+
+  el.innerHTML = navBar + `
     <div class="card hero">
-      <span class="lbl">Salário base mensal atual</span>
+      <span class="lbl">Salário base mensal${isLatest?' atual':''}</span>
       <span class="big">${eur(cur.baseMonthly)} <small>/ mês</small></span>
       <span class="delta ${cls}">${arrow} ${dM>=0?'+':''}${eur(dM)} · ${pct(pM)} vs revisão anterior</span>
     </div>
 
     <div class="grid2">
       <div class="card kpi"><div class="lbl">Salário anual (×${MONTHS_PER_YEAR})</div><div class="val">${eur(annualBase(cur))}</div><div class="note">${eur(cur.baseMonthly)} × ${MONTHS_PER_YEAR} meses</div></div>
-      <div class="card kpi"><div class="lbl">Nível atual</div><div class="val" style="font-size:18px">${lv.name}</div><div class="note">${lv.no!==''?'L'+lv.no:'&nbsp;'}</div></div>
+      <div class="card kpi"><div class="lbl">Nível</div><div class="val" style="font-size:18px">${lv.name}</div><div class="note">${lv.no!==''?'L'+lv.no:'&nbsp;'}</div></div>
     </div>
 
     <div class="grid2">
@@ -327,12 +386,18 @@ function renderResumo(){
       <span class="muted" style="font-size:12px">base ${eur(annualBase(cur))} · fixo ${eur(fixedTotal(cur))} · variável ${eur(yr?yr.variable:0)}${cur.plafond?` · plafond ${eur(cur.plafond)}`:''}</span>
     </div>
 
-    <h2 class="title">Última revisão · ${dlabel(cur.date)}</h2>
+    ${(benT>0 || stockContrib>0)?`
+    <div class="grid2">
+      <div class="card kpi"><div class="lbl">Benefícios convertidos</div><div class="val">${eur(benT)}</div><div class="note">${(cur.benefits||[]).length} ${((cur.benefits||[]).length===1?'item':'itens')}</div></div>
+      <div class="card kpi"><div class="lbl">Benefício plano de ações</div><div class="val">${eur2(stockBen)}</div><div class="note">${(cur.stockPlanPct||0)}% × 15% desconto</div></div>
+    </div>`:''}
+
+    <h2 class="title">Revisão · ${dlabel(cur.date)}</h2>
     <div class="card">
       <div class="rows">
         ${cur.banding?`<div class="rline"><span class="k">Banding / Outcome</span><span class="v">${cur.banding}</span></div>`:''}
         ${raisesThisYear>1?`<div class="rline"><span class="k">Revisões em ${curYear}</span><span class="v"><span class="badge">${raisesThisYear} no ano</span></span></div>`:''}
-        <div class="rline"><span class="k">Carreira</span><span class="v">${dlabel(DATA[0].date)} → ${dlabel(cur.date)}</span></div>
+        <div class="rline"><span class="k">Carreira</span><span class="v">${dlabel(DATA[0].date)} → ${dlabel(DATA[DATA.length-1].date)}</span></div>
         <div class="rline"><span class="k">Crescimento base total</span><span class="v">${pct((cur.baseMonthly-DATA[0].baseMonthly)/DATA[0].baseMonthly)}</span></div>
       </div>
     </div>
@@ -384,6 +449,8 @@ function renderRevs(){
             ${r.plafond?`<div class="rline"><span class="k">Plafond despesas</span><span class="v">${eur(r.plafond)}</span></div>`:''}
             <div class="rline"><span class="k">Base + outros (anual)</span><span class="v">${eur(basePlusOther(r))}</span></div>
             <div class="rline"><span class="k"><b>Total compensation</b></span><span class="v"><b>${eur(totalComp(r))}</b></span></div>
+            ${benefitsTotal(r)>0?`<div class="rline"><span class="k">Benefícios convertidos</span><span class="v">${eur(benefitsTotal(r))}</span></div>`+(r.benefits||[]).map(b=>{const tl=(BENEFIT_TYPES.find(t=>t[0]===b.type)||[null,b.type])[1];return `<div class="rline"><span class="k" style="padding-left:10px">· ${tl||'benefício'}</span><span class="v">${eur(b.amount)}</span></div>`;}).join(''):''}
+            ${stockPlanContribution(r)>0?`<div class="rline"><span class="k">Plano de ações (${r.stockPlanPct||0}%)</span><span class="v">${eur2(stockPlanContribution(r))}</span></div><div class="rline"><span class="k" style="padding-left:10px">· benefício (15% desconto)</span><span class="v" style="color:var(--good)">${eur2(stockPlanBenefit(r))}</span></div>`:''}
           </div>
           ${tags?`<div class="tags">${tags}</div>`:''}
           <div class="editbtns">
@@ -422,13 +489,53 @@ function buildForm(){
       <p class="hint">Estimativa anual (~3.000 €). Deixa a 0 se não aplicável.</p>
       <div class="field"><label>Plafond (anual)</label><input type="number" inputmode="decimal" id="f-plafond" placeholder="€"></div>
 
+      <div class="sectitle">Benefícios convertidos</div>
+      <p class="hint">Parte da componente variável que retiraste em benefícios líquidos (leasing, cheques-creche, etc.). Reduz a base do plano de ações.</p>
+      <div id="benefits-list"></div>
+      <button class="btn ghost sm" type="button" onclick="addBenefitRow()" style="margin-bottom:6px">+ Adicionar benefício</button>
+
+      <div class="sectitle">Plano de ações</div>
+      <p class="hint">% do vencimento que alocas ao plano. O benefício é (base anual + prémios + viatura − benefícios) × % × 15% de desconto.</p>
+      <div class="field"><label>% alocada ao plano</label><input type="number" inputmode="decimal" id="f-stockpct" placeholder="10" value="10"></div>
+
       <div class="computed" id="f-computed"></div>
       <button class="btn primary" id="f-save" onclick="saveForm()">Guardar revisão</button>
       <button class="btn ghost" style="margin-top:10px" id="f-cancel" onclick="cancelEdit()" hidden>Cancelar edição</button>
     </div>
   `;
-  ['f-base',...FIXED_FIELDS.map(([k])=>'fx-'+k),...VAR_FIELDS.map(([k])=>'vr-'+k),'f-plafond']
+  ['f-base',...FIXED_FIELDS.map(([k])=>'fx-'+k),...VAR_FIELDS.map(([k])=>'vr-'+k),'f-plafond','f-stockpct']
     .forEach(id=>document.getElementById(id).addEventListener('input',updateComputed));
+}
+
+/* ---- Benefícios (form) ---- */
+const BENEFIT_TYPES = [
+  ['','—'],
+  ['leasing','Viatura em leasing'],
+  ['chequesCreche','Cheques-creche'],
+  ['pension','PPR / pensão'],
+  ['equipment','Equipamento'],
+  ['other','Outro'],
+];
+function benefitRowHTML(b){
+  b=b||{type:'',amount:''};
+  return `<div class="benefit-row">
+    <div class="field"><label>Tipo</label><select class="b-type">${BENEFIT_TYPES.map(([v,l])=>`<option value="${v}" ${b.type===v?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="field"><label>Valor (€)</label><input type="number" inputmode="decimal" class="b-amount" placeholder="€" value="${b.amount!==''&&b.amount!=null?b.amount:''}"></div>
+    <button type="button" class="delb" onclick="this.closest('.benefit-row').remove();updateComputed()">🗑</button>
+  </div>`;
+}
+function addBenefitRow(b){
+  document.getElementById('benefits-list').insertAdjacentHTML('beforeend', benefitRowHTML(b));
+  const rows=document.querySelectorAll('#benefits-list .benefit-row');
+  const last=rows[rows.length-1];
+  last.querySelectorAll('select,input').forEach(e=>e.addEventListener('input',updateComputed));
+  updateComputed();
+}
+function readBenefits(){
+  return [...document.querySelectorAll('#benefits-list .benefit-row')].map(row=>({
+    type: row.querySelector('.b-type').value,
+    amount: +row.querySelector('.b-amount').value||0,
+  })).filter(b=>b.amount>0 || b.type);
 }
 function fillForm(r){
   document.getElementById('f-date').value = r? r.date : '';
@@ -438,6 +545,9 @@ function fillForm(r){
   FIXED_FIELDS.forEach(([k])=> document.getElementById('fx-'+k).value = r? (r.fixed[k]||'') : '');
   VAR_FIELDS.forEach(([k])=> document.getElementById('vr-'+k).value = r? (r.variable[k]||'') : '');
   document.getElementById('f-plafond').value = r? (r.plafond||'') : '';
+  document.getElementById('f-stockpct').value = r? (r.stockPlanPct!=null?r.stockPlanPct:10) : 10;
+  const bl=document.getElementById('benefits-list'); bl.innerHTML='';
+  if(r && r.benefits && r.benefits.length){ r.benefits.forEach(b=>addBenefitRow(b)); }
   updateComputed();
 }
 function resetForm(){
@@ -451,6 +561,7 @@ function resetForm(){
     document.getElementById('f-date').value='';
     document.getElementById('f-band').value='';
     VAR_FIELDS.forEach(([k])=> document.getElementById('vr-'+k).value='');
+    document.getElementById('benefits-list').innerHTML=''; // benefícios são por revisão
     updateComputed();
   } else { fillForm(null); }
 }
@@ -465,6 +576,8 @@ function readForm(){
     baseMonthly: +document.getElementById('f-base').value||0,
     fixed, variable,
     plafond: +document.getElementById('f-plafond').value||0,
+    benefits: readBenefits(),
+    stockPlanPct: +document.getElementById('f-stockpct').value||0,
   };
 }
 function updateComputed(){
@@ -475,10 +588,16 @@ function updateComputed(){
   else prev = DATA[DATA.length-1] && editIndex===null ? DATA[DATA.length-1] : (editIndex>0?DATA[editIndex-1]:null);
   const dM = prev ? r.baseMonthly - prev.baseMonthly : 0;
   const pM = prev && prev.baseMonthly ? dM/prev.baseMonthly : 0;
+  const benT = benefitsTotal(r);
+  const spBase = stockPlanBase(r);
+  const spContrib = stockPlanContribution(r);
+  const spBen = stockPlanBenefit(r);
   document.getElementById('f-computed').innerHTML =
     `Salário anual: <b>${eur(r.baseMonthly*MONTHS_PER_YEAR)}</b><br>`+
     `Aumento base vs revisão anterior: <b>${prev?(dM>=0?'+':'')+eur(dM)+' · '+pct(pM):'—'}</b><br>`+
-    `Total fixo: <b>${eur(FIXED_FIELDS.reduce((s,[k])=>s+(r.fixed[k]||0),0))}</b> · Variável: <b>${eur(VAR_FIELDS.reduce((s,[k])=>s+(r.variable[k]||0),0))}</b>`;
+    `Total fixo: <b>${eur(FIXED_FIELDS.reduce((s,[k])=>s+(r.fixed[k]||0),0))}</b> · Variável: <b>${eur(VAR_FIELDS.reduce((s,[k])=>s+(r.variable[k]||0),0))}</b>`+
+    (benT>0?`<br>Benefícios convertidos: <b>${eur(benT)}</b>`:'')+
+    `<br>Plano de ações — base: <b>${eur(spBase)}</b> · contribuição (${r.stockPlanPct||0}%): <b>${eur2(spContrib)}</b> · benefício (15%): <b>${eur2(spBen)}</b>`;
 }
 function saveForm(){
   const r = readForm();
@@ -507,6 +626,45 @@ function delRev(i){
   DATA.splice(i,1); save(); toast('Revisão eliminada'); renderAll();
 }
 
+/* =================== FILTROS (gráficos) =================== */
+const EXCLUDABLE = [...FIXED_FIELDS.map(([k,l])=>['fixed',k,l]), ...VAR_FIELDS.map(([k,l])=>['var',k,l])];
+let excluded = new Set(); // chaves "fixed:car", "var:oneShot", ...
+const exKey = (g,k)=> g+':'+k;
+function toggleFilter(g,k){
+  const key=exKey(g,k);
+  if(excluded.has(key)) excluded.delete(key); else excluded.add(key);
+  renderFilters(); renderCharts();
+}
+function clearFilters(){ excluded.clear(); renderFilters(); renderCharts(); }
+function renderFilters(){
+  const el=document.getElementById('evol-filters');
+  if(!el) return;
+  el.innerHTML = EXCLUDABLE.map(([g,k,lbl])=>{
+    const on = !excluded.has(exKey(g,k)); // "on" = incluído
+    return `<span class="fchip ${on?'on':''}" onclick="toggleFilter('${g}','${k}')">${lbl}${on?'':' <span class="x">excluído</span>'}</span>`;
+  }).join('') +
+  (excluded.size?`<span class="fchip" style="color:var(--bad);border-color:rgba(251,113,133,.4)" onclick="clearFilters()">↺ limpar (${excluded.size})</span>`:'');
+}
+// totais respeitando filtros
+const fixedTotalF = r => FIXED_FIELDS.reduce((s,[k])=> excluded.has(exKey('fixed',k))?s:s+(r.fixed[k]||0), 0);
+const varTotalF   = r => VAR_FIELDS.reduce((s,[k])=> excluded.has(exKey('var',k))?s:s+(r.variable[k]||0), 0);
+/* byYear filtrado para os gráficos */
+function byYearF(){
+  const map=new Map();
+  DATA.forEach(r=>{ const y=yearOf(r); if(!map.has(y)) map.set(y,{year:y,revs:[]}); map.get(y).revs.push(r); });
+  const out=[];
+  for(const {year,revs} of map.values()){
+    const last=revs[revs.length-1];
+    const variableYear=revs.reduce((s,r)=>s+varTotalF(r),0);
+    const fx=fixedTotalF(last);
+    out.push({year,revs,last,baseMonthly:last.baseMonthly,annualBase:annualBase(last),
+      fixed:fx,variable:variableYear,plafond:last.plafond||0,
+      total:annualBase(last)+fx+variableYear+(last.plafond||0)});
+  }
+  out.sort((a,b)=>a.year-b.year);
+  return out;
+}
+
 /* =================== CHARTS =================== */
 let charts={};
 function destroyCharts(){ Object.values(charts).forEach(c=>c&&c.destroy()); charts={}; }
@@ -533,8 +691,8 @@ function renderCharts(){
         y:{grid,ticks:{...tick,callback:v=>v+' €'}}}}
   });
 
-  const yrs=byYear();
-  const fixedBreakdown = i => FIXED_FIELDS.filter(([k])=>yrs[i].last.fixed[k])
+  const yrs=byYearF();
+  const fixedBreakdown = i => FIXED_FIELDS.filter(([k])=>!excluded.has(exKey('fixed',k)) && yrs[i].last.fixed[k])
         .map(([k,lbl])=>'   · '+lbl+': '+eur(yrs[i].last.fixed[k]));
 
   // 2) total compensation por ano — empilhado, com tooltips detalhados
@@ -606,7 +764,7 @@ function toast(msg){
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),1900);
 }
-function renderAll(){ renderResumo(); renderRevs(); if(current==='evol') renderCharts(); }
+function renderAll(){ resumoIdx=null; renderResumo(); renderRevs(); renderFilters(); if(current==='evol') renderCharts(); }
 
 /* =================== INIT =================== */
 load();
