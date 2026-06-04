@@ -59,6 +59,7 @@ canvas{max-width:100%}
 .rev{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:9px}
 .rev .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .rev .date{font-size:12px;color:var(--mut)}
+.rev .promo-badge{font-size:9px;font-weight:700;background:rgba(74,222,128,.14);color:var(--good);padding:2px 7px;border-radius:999px;margin-left:6px;vertical-align:middle;letter-spacing:.2px}
 .rev .lvl{font-weight:700;margin-top:2px}
 .rev .band{font-size:12px;color:var(--acc);margin-top:1px}
 .rev .amt{text-align:right}
@@ -575,7 +576,7 @@ function renderRevs(){
     const yearVarByField = {};
     VAR_FIELDS.forEach(([k])=>{ yearVarByField[k] = idxs.reduce((s,j)=>s+(DATA[j].variable[k]||0),0); });
     const yearVarTotal = VAR_FIELDS.reduce((s,[k])=>s+yearVarByField[k],0);
-    html += `<div class="yhead"><span class="yr">${y}</span>${idxs.length>1?`<span class="badge">${idxs.length} aumentos</span>`:''}</div>`;
+    html += `<div class="yhead"><span class="yr">${y}</span>${idxs.length>1?`<span class="badge">${idxs.length} revisões</span>`:''}</div>`;
     idxs.slice().reverse().forEach(i=>{
       const r = DATA[i];
       const prev = i>0 ? DATA[i-1] : null;
@@ -583,7 +584,6 @@ function renderRevs(){
       const dM = prev ? r.baseMonthly - prev.baseMonthly : 0;
       const pM = prev && prev.baseMonthly ? dM/prev.baseMonthly : 0;
       const cls = dM>0?'up':dM<0?'down':'flat';
-      const dAB = prev ? annualBase(r) - annualBase(prev) : 0;
       const dAllow = prev ? allowanceTotal(r) - allowanceTotal(prev) : 0;
       const pAllow = prev && allowanceTotal(prev) ? dAllow/allowanceTotal(prev) : 0;
       const clsAllow = dAllow>0?'up':dAllow<0?'down':'flat';
@@ -593,14 +593,13 @@ function renderRevs(){
       <div class="rev" id="rev-${i}">
         <div class="top" onclick="toggleRev(${i})">
           <div>
-            <div class="date">${dlabel(r.date)}</div>
-            <div class="lvl">${lv.name}${promo?' <span class="pill">promoção</span>':''}</div>
+            <div class="date">${dlabel(r.date)}${promo?` <span class="promo-badge">promoção</span>`:''}</div>
+            <div class="lvl">${lv.name}</div>
             ${r.banding?`<div class="band">${r.banding}</div>`:''}
           </div>
           <div class="amt">
             <div class="m">${eur(r.baseMonthly)} <span style="font-size:11px;font-weight:600;color:var(--mut)">/mês</span></div>
-            <div class="a">${eur(annualBase(r))}/ano</div>
-            ${prev?`${dAB!==0?`<div class="cmp">Base Pay: <span class="val ${cls}">${pct(pM)} · ${dAB>=0?'+':''}${eur(dAB)}</span></div>`:''}${vt?`<div class="cmp">Prémio: <span class="val">${eur(vt)}</span></div>`:''}${dAllow!==0?`<div class="cmp">Allowances: <span class="val ${clsAllow}">${pct(pAllow)} · ${dAllow>=0?'+':''}${eur(dAllow)}</span></div>`:''}${(dAB===0&&dAllow===0&&!vt)?`<div class="a">sem variação</div>`:''}`:`<div class="a">início${vt?` · prémio ${eur(vt)}`:''}</div>`}
+            ${prev?`${dM!==0?`<div class="cmp">Base Pay: <span class="val ${cls}">${pct(pM)} · ${dM>=0?'+':''}${eur(dM)}</span></div>`:''}${vt?`<div class="cmp">Prémio: <span class="val up">${eur(vt)}</span></div>`:''}${dAllow!==0?`<div class="cmp">Allowances: <span class="val ${clsAllow}">${pct(pAllow)} · ${dAllow>=0?'+':''}${eur(dAllow)}</span></div>`:''}${(dM===0&&dAllow===0&&!vt)?`<div class="a">sem variação</div>`:''}`:`<div class="a">início${vt?` · prémio ${eur(vt)}`:''}</div>`}
           </div>
         </div>
         <div class="detail">
@@ -937,8 +936,12 @@ function renderCharts(){
   });
 
   const yrs=byYearF();
-  const allowBreakdown = i => ALLOWANCE_FIELDS.filter(([k])=>!excluded.has(exKey('allow',k)) && yrs[i].last.fixed[k])
+  const allowBreakdown = i => {
+    const out = ALLOWANCE_FIELDS.filter(([k])=>!excluded.has(exKey('allow',k)) && yrs[i].last.fixed[k])
         .map(([k,lbl])=>'   · '+lbl+': '+eur(yrs[i].last.fixed[k]));
+    if(yrs[i].plafond) out.push('   · Expenses Allowance: '+eur(yrs[i].plafond));
+    return out;
+  };
   const benefBreakdown = i => {
     const last=yrs[i].last, out=[];
     BENEFIT_FIELDS.forEach(([k,lbl])=>{ if(!excluded.has(exKey('benef',k)) && last.fixed[k]) out.push('   · '+lbl+': '+eur(last.fixed[k])); });
@@ -952,10 +955,9 @@ function renderCharts(){
     data:{labels:yrs.map(y=>y.year),
       datasets:[
         {label:'Base',      kind:'base',  data:yrs.map(y=>y.annualBase), backgroundColor:'#3b82f6'},
-        {label:'Allowances',kind:'allow', data:yrs.map(y=>y.allowances), backgroundColor:'#8b5cf6'},
+        {label:'Allowances',kind:'allow', data:yrs.map(y=>y.allowances + y.plafond), backgroundColor:'#8b5cf6'},
         {label:'Benef. Fixos',kind:'benef', data:yrs.map(y=>y.benefits),   backgroundColor:'#22d3ee'},
         {label:'Variável',  kind:'var',   data:yrs.map(y=>y.variable),   backgroundColor:'#4ade80'},
-        {label:'Expenses',  kind:'plafond',data:yrs.map(y=>y.plafond),   backgroundColor:'#fbbf24'},
       ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend,tooltip:{
@@ -963,10 +965,9 @@ function renderCharts(){
         callbacks:{
           label:ctx=>{const y=yrs[ctx.dataIndex],k=ctx.dataset.kind;
             if(k==='base')  return ' Base: '+eur(y.annualBase)+'  ('+eur(y.baseMonthly)+'/mês)';
-            if(k==='allow') return ' Allowances: '+eur(y.allowances);
+            if(k==='allow') return ' Allowances: '+eur(y.allowances + y.plafond);
             if(k==='benef') return ' Benef. Fixos: '+eur(y.benefits);
-            if(k==='var')   return ' Variável: '+eur(y.variable);
-            return ' Expenses Allowance: '+eur(y.plafond);},
+            return ' Variável: '+eur(y.variable);},
           afterLabel:ctx=> ctx.dataset.kind==='allow' ? allowBreakdown(ctx.dataIndex)
                          : ctx.dataset.kind==='benef' ? benefBreakdown(ctx.dataIndex) : '',
           footer:items=>'Total: '+eur(yrs[items[0].dataIndex].total)}}},
