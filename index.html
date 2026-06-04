@@ -426,6 +426,9 @@ function renderResumo(){
   const flexT = flexTotal(cur);
   const spContrib = stockPlanContribution(cur);
   const spBen = stockPlanBenefit(cur);
+  const totalC = yr ? yr.total : totalComp(cur);
+  const naoTributavel = (cur.fixed.lunch||0) + benT + flexT; // almoço + benef. fixos + flex
+  const tributavel = totalC - naoTributavel;
 
   el.innerHTML = navBar + `
     <div class="card hero">
@@ -436,23 +439,23 @@ function renderResumo(){
 
     <div class="grid2">
       <div class="card kpi"><div class="lbl">Salário anual (×${MONTHS_PER_YEAR})</div><div class="val">${eur(annualBase(cur))}</div><div class="note">${eur(cur.baseMonthly)} × ${MONTHS_PER_YEAR} meses</div></div>
-      <div class="card kpi"><div class="lbl">Nível</div><div class="val" style="font-size:18px">${lv.name}</div><div class="note">${lv.no!==''?'L'+lv.no:'&nbsp;'}</div></div>
+      <div class="card kpi"><div class="lbl">Allowances / ano</div><div class="val">${eur(allowanceTotal(cur)+(cur.plafond||0))}</div><div class="note">almoço + viatura${cur.plafond?' + expenses':''}</div></div>
     </div>
 
     <div class="grid2">
-      <div class="card kpi"><div class="lbl">Allowances / ano</div><div class="val">${eur(allowanceTotal(cur))}</div><div class="note">almoço + viatura</div></div>
       <div class="card kpi"><div class="lbl">Benefícios Fixos / ano</div><div class="val">${eur(benT)}</div><div class="note">telemóvel + seguros + ações</div></div>
-    </div>
-
-    <div class="grid2">
       <div class="card kpi"><div class="lbl">Variável ${curYear}</div><div class="val">${eur(yr?yr.variable:varTotal(cur))}</div><div class="note">soma dos prémios do ano</div></div>
-      <div class="card kpi"><div class="lbl">Expenses Allowance</div><div class="val">${eur(cur.plafond||0)}</div><div class="note">plafond de despesas</div></div>
     </div>
 
     <div class="card hero" style="margin-top:2px">
       <span class="lbl">Total compensation ${curYear} (estimado)</span>
-      <span class="big">${eur(yr?yr.total:totalComp(cur))}</span>
+      <span class="big">${eur(totalC)}</span>
       <span class="muted" style="font-size:12px">base ${eur(annualBase(cur))} · allowances ${eur(allowanceTotal(cur))} · benef. fixos ${eur(benT)} · variável ${eur(yr?yr.variable:0)}${cur.plafond?` · expenses ${eur(cur.plafond)}`:''}</span>
+    </div>
+
+    <div class="grid2">
+      <div class="card kpi"><div class="lbl">Sujeito a impostos</div><div class="val">${eur(tributavel)}</div><div class="note">base · viatura · variável · expenses</div></div>
+      <div class="card kpi"><div class="lbl">Não sujeito a impostos</div><div class="val">${eur(naoTributavel)}</div><div class="note">almoço · benef. fixos · flex</div></div>
     </div>
 
     <h2 class="title">Benefícios Fixos · ${dlabel(cur.date)}</h2>
