@@ -94,9 +94,11 @@ canvas{max-width:100%}
 label{display:block;font-size:12px;color:var(--mut);margin:0 0 5px 2px}
 .field{margin-bottom:13px}
 input,select{
-  width:100%;background:#0e1530;border:1px solid var(--line);color:var(--txt);
+  width:100%;max-width:100%;min-width:0;background:#0e1530;border:1px solid var(--line);color:var(--txt);
   border-radius:11px;padding:12px;font-size:16px;outline:none;
 }
+/* date/month/time no iOS não respeitam width:100% sem tirar a aparência nativa */
+input[type="month"],input[type="date"],input[type="time"]{-webkit-appearance:none;appearance:none}
 input:focus,select:focus{border-color:var(--acc2)}
 .frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .sectitle{font-size:13px;font-weight:700;color:var(--acc);margin:18px 2px 10px;letter-spacing:.3px}
@@ -137,8 +139,10 @@ nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width
 .fchip .x{font-size:10px;margin-left:4px;opacity:.6}
 .frow-actions{display:flex;gap:8px;margin:2px 2px 12px}
 /* benefícios no form */
-.benefit-row{display:grid;grid-template-columns:1.2fr 1fr auto;gap:8px;align-items:end;margin-bottom:9px}
-.benefit-row .delb{background:rgba(251,113,133,.16);color:var(--bad);border:none;border-radius:10px;width:44px;height:46px;font-size:16px;cursor:pointer}
+.benefit-row{display:grid;grid-template-columns:2.2fr 1fr auto;gap:8px;align-items:end;margin-bottom:9px}
+.benefit-row .field label{font-size:11px;margin-bottom:4px}
+.benefit-row input,.benefit-row select{font-size:13px;padding:10px}
+.benefit-row .delb{background:rgba(251,113,133,.16);color:var(--bad);border:none;border-radius:10px;width:44px;height:42px;font-size:15px;cursor:pointer}
 .benefit-row .field{margin-bottom:0}
 small.foot{display:block;text-align:center;color:var(--mut);font-size:11px;margin-top:18px}
 /* bloco de cálculo colapsável */
@@ -279,14 +283,16 @@ const FLEX_TYPES = [
   ['chequesCreche','Cheques-creche'],
   ['pension','PPR / pensão'],
   ['equipment','Equipamento'],
+  ['extraHealth','Extra Seguro Saúde'],
   ['other','Outro'],
 ];
 const flexLabel = t => (FLEX_TYPES.find(x=>x[0]===t)||[null,t||'benefício'])[1];
-/* EXPENSES ALLOWANCE — conversões do plafond de despesas em benefícios */
+/* EXPENSES ALLOWANCE — utilização do plafond de despesas em benefícios */
 const EXPENSE_TYPES = [
   ['','—'],
   ['galp','Galp Frota'],
   ['restauracao','Faturas Restauração'],
+  ['extraComms','Extra Telemóveis'],
   ['other','Outro'],
 ];
 const expenseLabel = t => (EXPENSE_TYPES.find(x=>x[0]===t)||[null,t||'despesa'])[1];
@@ -323,7 +329,7 @@ function normalize(){
     r.benefits = Array.isArray(r.benefits) ? r.benefits.map(b=>({
       type: b.type||'', amount: +b.amount||0
     })) : [];
-    // Conversões do Expenses Allowance (Galp Frota, Faturas Restauração, etc.)
+    // Utilização do Expenses Allowance (Galp Frota, Faturas Restauração, etc.)
     r.expenseBenefits = Array.isArray(r.expenseBenefits) ? r.expenseBenefits.map(b=>({
       type: b.type||'', amount: +b.amount||0
     })) : [];
@@ -338,10 +344,10 @@ const insurancesTotal = r => (r.fixed.health||0) + (r.fixed.healthFamily||0);
 const varTotal   = r => VAR_FIELDS.reduce((s,[k])=> s + (r.variable[k]||0), 0);
 /* Benefícios Flex — parte dos prémios variáveis retirada em benefícios líquidos */
 const flexTotal  = r => (r.benefits||[]).reduce((s,b)=> s + (+b.amount||0), 0);
-/* Conversões do Expenses Allowance (Galp Frota, Faturas Restauração, …) */
+/* Utilização do Expenses Allowance (Galp Frota, Faturas Restauração, …) */
 const expenseBenefitsTotal = r => (r.expenseBenefits||[]).reduce((s,b)=> s + (+b.amount||0), 0);
 /* Plano de Ações: 10% do que recebes EM CONTA = ordenado + prémios + Car Allowance + Expenses Allowance
-   − todos os benefícios convertidos (Flex + conversões de despesas).
+   − todos os benefícios utilizados (Flex + utilização do Expenses).
    As ações são compradas com 15% de desconto → o ganho é STOCK_DISCOUNT da contribuição. */
 const stockPlanBase = r => Math.max(0,
   annualBase(r) + varTotal(r) + (r.fixed.car||0) + (r.plafond||0)
@@ -661,15 +667,15 @@ function buildForm(){
       </details>
 
       <details class="card calc" style="margin:12px 0 0">
-        <summary>Utilização de prémios/allowances (Flex + conversões) <span class="chev">▾</span></summary>
+        <summary>Utilização de prémios/allowances (Flex + Expenses) <span class="chev">▾</span></summary>
         <div class="cbody">
           <p class="hint" style="margin-top:0">Car Scheme, cheques-creche, Galp Frota, faturas de restauração… Reduzem a base do plano de ações (não as recebes em conta).</p>
           <div class="sectitle" style="margin-top:4px">Benefícios Flex — sobre os prémios</div>
           <div id="flex-list"></div>
           <button class="btn ghost sm" type="button" onclick="addFlexRow()" style="margin-bottom:6px">+ Adicionar benefício Flex</button>
-          <div class="sectitle">Conversões do Expenses Allowance</div>
+          <div class="sectitle">Utilização do Expenses Allowance</div>
           <div id="expense-list"></div>
-          <button class="btn ghost sm" type="button" onclick="addExpenseRow()" style="margin-bottom:6px">+ Adicionar conversão</button>
+          <button class="btn ghost sm" type="button" onclick="addExpenseRow()" style="margin-bottom:6px">+ Adicionar utilização</button>
         </div>
       </details>
 
@@ -734,7 +740,7 @@ function readFlex(){
     amount: +row.querySelector('.b-amount').value||0,
   })).filter(b=>b.amount>0 || b.type);
 }
-/* ---- Conversões do Expenses Allowance (form) ---- */
+/* ---- Utilização do Expenses Allowance (form) ---- */
 function expenseRowHTML(b){
   b=b||{type:'',amount:''};
   return `<div class="benefit-row">
@@ -784,7 +790,7 @@ function resetForm(){
     document.getElementById('f-band').value='';
     document.getElementById('var-list').innerHTML='';  // prémios são por revisão
     document.getElementById('flex-list').innerHTML=''; // Flex são por revisão
-    document.getElementById('expense-list').innerHTML=''; // conversões são por revisão
+    document.getElementById('expense-list').innerHTML=''; // utilização é por revisão
     updateComputed();
   } else { fillForm(null); }
 }
