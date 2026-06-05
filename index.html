@@ -44,6 +44,11 @@ h2.title{font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--
 .kpi .lbl{color:var(--mut);font-size:12px}
 .kpi .val{font-size:21px;font-weight:700;margin-top:3px}
 .kpi .note{color:var(--mut);font-size:11px;margin-top:3px}
+.kpi.tap{cursor:pointer;position:relative}
+.kpi.tap .chev{position:absolute;top:12px;right:12px;color:var(--mut);font-size:12px;transition:transform .2s}
+.kpi.tap.open .chev{transform:rotate(180deg)}
+.kpi-detail{display:none}
+.kpi-detail.open{display:block}
 .rows{display:flex;flex-direction:column;gap:8px}
 .rline{display:flex;justify-content:space-between;align-items:center;font-size:14px}
 .rline .k{color:var(--mut)}
@@ -406,6 +411,12 @@ function resumoStep(delta){
   renderResumo();
 }
 function resumoLatest(){ resumoIdx=null; renderResumo(); }
+function toggleKpi(key){
+  const c=document.getElementById('kpi-c-'+key), d=document.getElementById('kpi-d-'+key);
+  if(!c||!d) return;
+  const open=!d.classList.contains('open');
+  d.classList.toggle('open',open); c.classList.toggle('open',open);
+}
 function renderResumo(){
   const el = document.getElementById('view-resumo');
   if(!DATA.length){ el.innerHTML='<div class="card center"><p style="font-size:34px;margin:6px 0">📥</p><p>Ainda não há dados neste dispositivo.</p><p class="muted" style="font-size:13px">Vai a <b>Backup</b> e importa o teu ficheiro JSON, ou regista a primeira revisão em <b>Nova</b>.</p><button class="btn primary" style="margin-top:10px" onclick="nav(\'backup\')">Ir para Backup</button></div>'; return; }
@@ -443,6 +454,7 @@ function renderResumo(){
   const spBen = stockPlanBenefit(cur);
   const totalC = yr ? yr.total : totalComp(cur);
   const varAno = yr ? yr.variable : varTotal(cur);
+  const yearVarByField={}; VAR_FIELDS.forEach(([k])=>{ yearVarByField[k]=DATA.filter(r=>yearOf(r)===curYear).reduce((s,r)=>s+(r.variable[k]||0),0); });
   const isLastOfYear = idx===DATA.length-1 || yearOf(DATA[idx+1])!==curYear;
   const yrIdx = yrs.findIndex(y=>y.year===curYear);
   const prevYr = yrIdx>0 ? yrs[yrIdx-1] : null;
@@ -462,13 +474,42 @@ function renderResumo(){
 
     <div class="grid2">
       <div class="card kpi"><div class="lbl">Salário anual (×${MONTHS_PER_YEAR})</div><div class="val">${eur(annualBase(cur))}</div><div class="note">${eur(cur.baseMonthly)} × ${MONTHS_PER_YEAR} meses</div></div>
-      <div class="card kpi"><div class="lbl">Allowances / ano</div><div class="val">${eur(allowanceTotal(cur)+(cur.plafond||0))}</div><div class="note">lunch + car${cur.plafond?' + expenses':''}</div></div>
+      <div class="card kpi tap" id="kpi-c-allow" onclick="toggleKpi('allow')"><span class="chev">▾</span><div class="lbl">Allowances / ano</div><div class="val">${eur(allowanceTotal(cur)+(cur.plafond||0))}</div><div class="note">lunch + car${cur.plafond?' + expenses':''}</div></div>
     </div>
+    <div class="kpi-detail" id="kpi-d-allow"><div class="card"><div class="rows">
+      ${cur.fixed.lunch?`<div class="rline"><span class="k">Lunch Allowance</span><span class="v">${eur(cur.fixed.lunch)}</span></div>`:''}
+      ${cur.fixed.car?`<div class="rline"><span class="k">Car Allowance</span><span class="v">${eur(cur.fixed.car)}</span></div>`:''}
+      ${cur.plafond?`<div class="rline"><span class="k">Expenses Allowance</span><span class="v">${eur(cur.plafond)}</span></div>`:''}
+      <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total allowances</b></span><span class="v"><b>${eur(allowanceTotal(cur)+(cur.plafond||0))}</b></span></div>
+    </div></div></div>
 
     <div class="grid2">
-      <div class="card kpi"><div class="lbl">Benefícios Fixos / ano</div><div class="val">${eur(benT)}</div><div class="note">telemóvel + seguros + ações</div></div>
-      <div class="card kpi"><div class="lbl">Variável ${curYear}</div><div class="val">${eur(yr?yr.variable:varTotal(cur))}</div><div class="note">soma dos prémios do ano</div></div>
+      <div class="card kpi tap" id="kpi-c-benef" onclick="toggleKpi('benef')"><span class="chev">▾</span><div class="lbl">Benefícios Fixos / ano</div><div class="val">${eur(benT)}</div><div class="note">telemóvel + seguros + ações</div></div>
+      <div class="card kpi tap" id="kpi-c-var" onclick="toggleKpi('var')"><span class="chev">▾</span><div class="lbl">Variável / ano</div><div class="val">${eur(varAno)}</div><div class="note">soma dos prémios do ano</div></div>
     </div>
+    <div class="kpi-detail" id="kpi-d-benef"><div class="card"><div class="rows">
+      <div class="rline"><span class="k">Plafond Telemóvel</span><span class="v">${eur(cur.fixed.comms||0)}</span></div>
+      <div class="rline"><span class="k">Seguro Saúde</span><span class="v">${eur(insurancesTotal(cur))}</span></div>
+      <div class="rline"><span class="k">Ações <span class="muted" style="font-weight:400">(Desc. 15%)</span></span><span class="v"><sup style="font-size:9px;color:var(--mut)">*</sup>&thinsp;${eur(spBen)}</span></div>
+      <div style="padding-left:10px;font-size:10px;color:var(--mut);margin:-6px 0 4px">* ganho estimado (valor indicativo)</div>
+      <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total benefícios fixos</b></span><span class="v"><b>${eur(benT)}</b></span></div>
+      </div>
+      <details class="calc" style="margin-top:10px;border-top:1px dashed var(--line)">
+        <summary style="padding-left:0;padding-right:0">Como se calcula o ${STOCK_PLAN_LABEL} <span class="chev">▾</span></summary>
+        <div class="cbody" style="padding:6px 0 0">
+          <div class="rows">
+            <div class="rline"><span class="k">Base (em conta)</span><span class="v">${eur(stockPlanBase(cur))}</span></div>
+            <div class="rline"><span class="k" style="padding-left:10px;font-size:12px">ordenado + prémios + viatura + expenses − benefícios</span><span class="v">&nbsp;</span></div>
+            <div class="rline"><span class="k">Contribuição (${cur.stockPlanPct||0}%)</span><span class="v">${eur(spContrib)}</span></div>
+            <div class="rline"><span class="k">Ganho do desconto (15%)</span><span class="v" style="color:var(--good)">${eur(spBen)}</span></div>
+          </div>
+        </div>
+      </details>
+    </div></div>
+    <div class="kpi-detail" id="kpi-d-var"><div class="card"><div class="rows">
+      ${VAR_FIELDS.filter(([k])=>yearVarByField[k]).map(([k,lbl])=>`<div class="rline"><span class="k">${lbl}</span><span class="v">${eur(yearVarByField[k])}</span></div>`).join('')||`<div class="rline"><span class="k muted">Sem prémios neste ano</span><span class="v">${eur(0)}</span></div>`}
+      <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total variável (${curYear})</b></span><span class="v"><b>${eur(varAno)}</b></span></div>
+    </div></div></div>
 
     ${isLastOfYear?`
     <div class="card hero" style="margin-top:2px">
@@ -481,46 +522,15 @@ function renderResumo(){
       <p class="muted" style="margin:0;font-size:13px">O <b>Total Compensation</b> e a repartição fiscal são apresentados na <b>última revisão de cada ano</b>, quando os dados do ano estão completos.</p>
     </div>`}
 
-    <h2 class="title">Benefícios Fixos · ${dlabel(cur.date)}</h2>
-    <div class="card">
-      <div class="rows">
-        <div class="rline"><span class="k">Plafond Telemóvel</span><span class="v">${eur(cur.fixed.comms||0)}</span></div>
-        <div class="rline"><span class="k">Seguro Saúde</span><span class="v">${eur(insurancesTotal(cur))}</span></div>
-        <div class="rline"><span class="k">Ações <span class="muted" style="font-weight:400">(Desc. 15%)</span></span><span class="v"><sup style="font-size:9px;color:var(--mut)">*</sup>&thinsp;${eur(spBen)}</span></div>
-        <div style="padding-left:10px;font-size:10px;color:var(--mut);margin:-6px 0 4px">* ganho estimado (valor indicativo)</div>
-        <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total benefícios fixos</b></span><span class="v"><b>${eur(benT)}</b></span></div>
-      </div>
-    </div>
-    <details class="card calc">
-      <summary>Como se calcula o ${STOCK_PLAN_LABEL} <span class="chev">▾</span></summary>
-      <div class="cbody">
-        <div class="rows">
-          <div class="rline"><span class="k">Base (em conta)</span><span class="v">${eur(stockPlanBase(cur))}</span></div>
-          <div class="rline"><span class="k" style="padding-left:10px;font-size:12px">ordenado + prémios + viatura + expenses − benefícios</span><span class="v">&nbsp;</span></div>
-          <div class="rline"><span class="k">Contribuição (${cur.stockPlanPct||0}%)</span><span class="v">${eur(spContrib)}</span></div>
-          <div class="rline"><span class="k">Ganho do desconto (15%)</span><span class="v" style="color:var(--good)">${eur(spBen)}</span></div>
-        </div>
-      </div>
-    </details>
-
-    ${flexT>0?`
-    <h2 class="title">Benefícios Flex · ${dlabel(cur.date)}</h2>
+    ${(flexT+expBen)>0?`
+    <h2 class="title">Utilização Allowances/Prémios · ${dlabel(cur.date)}</h2>
     <div class="card">
       <div class="rows">
         ${(cur.benefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k">${flexLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join('')}
-        <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total Flex</b></span><span class="v"><b>${eur(flexT)}</b></span></div>
+        ${(cur.expenseBenefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k">${expenseLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join('')}
+        <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total utilizado</b></span><span class="v"><b>${eur(flexT+expBen)}</b></span></div>
       </div>
-      <p class="hint" style="margin:8px 0 0">Os benefícios Flex consomem dos prémios e Car Allowance.</p>
-    </div>`:''}
-
-    ${cur.plafond?`
-    <h2 class="title">Expenses Allowance · ${dlabel(cur.date)}</h2>
-    <div class="card">
-      <div class="rows">
-        <div class="rline"><span class="k">Plafond anual</span><span class="v">${eur(cur.plafond)}</span></div>
-        ${(cur.expenseBenefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k" style="padding-left:10px">· ${expenseLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join('')}
-        ${expenseBenefitsTotal(cur)?`<div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k">Convertido</span><span class="v">${eur(expenseBenefitsTotal(cur))}</span></div><div class="rline"><span class="k">Por usar</span><span class="v">${eur(cur.plafond-expenseBenefitsTotal(cur))}</span></div>`:''}
-      </div>
+      ${cur.plafond?`<p class="hint" style="margin:8px 0 0">Expenses Allowance por usar: <b>${eur(Math.max(0,cur.plafond-expBen))}</b>. Estas conversões reduzem a base do plano de ações (não as recebes em conta).</p>`:`<p class="hint" style="margin:8px 0 0">Consome dos prémios e Car Allowance; reduz a base do plano de ações.</p>`}
     </div>`:''}
 
     ${isLastOfYear?`
@@ -640,42 +650,50 @@ function buildForm(){
       <div class="field"><label>Data da revisão</label><input type="month" id="f-date"></div>
       <div class="frow">
         <div class="field"><label>Nível</label><select id="f-level">${LEVELS.map(l=>`<option value="${l.code}">${l.name}</option>`).join('')}</select></div>
-        <div class="field"><label>Salário base / mês</label><input type="number" inputmode="decimal" id="f-base" placeholder="€"></div>
+        <div class="field"><label>Novo salário anual</label><input type="number" inputmode="decimal" id="f-annual" placeholder="€"></div>
       </div>
+      <div class="computed" id="f-monthly" style="margin-top:-4px"></div>
       <div class="field"><label>Banding / Outcome (opcional)</label><input type="text" id="f-band" placeholder="ex: Talent Priority"></div>
 
-      <div class="sectitle">Allowances — anual</div>
-      ${ALLOWANCE_FIELDS.map(([k,lbl])=>`<div class="field"><label>${lbl}</label><input type="number" inputmode="decimal" id="fx-${k}" placeholder="€"></div>`).join('')}
-
-      <div class="sectitle">Benefícios Fixos — anual</div>
-      ${BENEFIT_FIELDS.map(([k,lbl])=>`<div class="field"><label>${lbl}</label><input type="number" inputmode="decimal" id="fx-${k}" placeholder="€"></div>`).join('')}
-      <div class="field"><label>${STOCK_PLAN_LABEL} — % alocada (PAAT)</label><input type="number" inputmode="decimal" id="f-stockpct" placeholder="${STOCK_PLAN_DEFAULT_PCT}" value="${STOCK_PLAN_DEFAULT_PCT}"></div>
-      <p class="hint" style="margin-top:-6px">10% do que recebes em conta: ordenado + prémios + viatura + Expenses Allowance − todos os benefícios convertidos. Ações compradas a −15%. O valor é calculado.</p>
-      <div class="computed" id="f-stock"></div>
-
-      <div class="sectitle">Variável — prémios desta revisão</div>
+      <div class="sectitle">Prémios desta revisão</div>
       <p class="hint">Adiciona só os prémios que se aplicam. Vários prémios no mesmo ano são somados no resumo anual.</p>
       <div id="var-list"></div>
       <button class="btn ghost sm" type="button" onclick="addVarRow()" style="margin-bottom:6px">+ Adicionar prémio</button>
 
-      <div class="sectitle">Benefícios Flex — sobre os prémios</div>
-      <p class="hint">Parte dos prémios que retiras em benefícios líquidos (leasing, cheques-creche, etc.). Reduz a base do plano de ações.</p>
-      <div id="flex-list"></div>
-      <button class="btn ghost sm" type="button" onclick="addFlexRow()" style="margin-bottom:6px">+ Adicionar benefício Flex</button>
+      <details class="card calc" style="margin:14px 0 0">
+        <summary>Allowances e Benefícios Fixos — herdados da revisão anterior <span class="chev">▾</span></summary>
+        <div class="cbody">
+          <p class="hint" style="margin-top:0">Pré-preenchidos com a última revisão (raramente mudam). Ajusta só se for caso disso.</p>
+          <div class="sectitle" style="margin-top:6px">Allowances — anual</div>
+          ${ALLOWANCE_FIELDS.map(([k,lbl])=>`<div class="field"><label>${lbl}</label><input type="number" inputmode="decimal" id="fx-${k}" placeholder="€"></div>`).join('')}
+          <div class="sectitle">Benefícios Fixos — anual</div>
+          ${BENEFIT_FIELDS.map(([k,lbl])=>`<div class="field"><label>${lbl}</label><input type="number" inputmode="decimal" id="fx-${k}" placeholder="€"></div>`).join('')}
+          <div class="field"><label>${STOCK_PLAN_LABEL} — % alocada (PAAT)</label><input type="number" inputmode="decimal" id="f-stockpct" placeholder="${STOCK_PLAN_DEFAULT_PCT}" value="${STOCK_PLAN_DEFAULT_PCT}"></div>
+          <p class="hint" style="margin-top:-6px">10% do que recebes em conta: ordenado + prémios + viatura + Expenses Allowance − benefícios convertidos. Ações a −15%. O valor é calculado.</p>
+          <div class="field"><label>Expenses Allowance (anual)</label><input type="number" inputmode="decimal" id="f-plafond" placeholder="€"></div>
+          <div class="computed" id="f-stock"></div>
+        </div>
+      </details>
 
-      <div class="sectitle">Expenses Allowance</div>
-      <p class="hint">Plafond anual de despesas (~3.000 €). Deixa a 0 se não aplicável.</p>
-      <div class="field"><label>Expenses Allowance (anual)</label><input type="number" inputmode="decimal" id="f-plafond" placeholder="€"></div>
-      <p class="hint">Conversões em benefícios (Galp Frota, Faturas Restauração, …). Não alteram o total, mas reduzem a base do plano de ações (não as recebes em conta).</p>
-      <div id="expense-list"></div>
-      <button class="btn ghost sm" type="button" onclick="addExpenseRow()" style="margin-bottom:6px">+ Adicionar conversão</button>
+      <details class="card calc" style="margin:12px 0 0">
+        <summary>Utilização de prémios/allowances (Flex + conversões) <span class="chev">▾</span></summary>
+        <div class="cbody">
+          <p class="hint" style="margin-top:0">Car Scheme, cheques-creche, Galp Frota, faturas de restauração… Reduzem a base do plano de ações (não as recebes em conta).</p>
+          <div class="sectitle" style="margin-top:4px">Benefícios Flex — sobre os prémios</div>
+          <div id="flex-list"></div>
+          <button class="btn ghost sm" type="button" onclick="addFlexRow()" style="margin-bottom:6px">+ Adicionar benefício Flex</button>
+          <div class="sectitle">Conversões do Expenses Allowance</div>
+          <div id="expense-list"></div>
+          <button class="btn ghost sm" type="button" onclick="addExpenseRow()" style="margin-bottom:6px">+ Adicionar conversão</button>
+        </div>
+      </details>
 
-      <div class="computed" id="f-computed"></div>
+      <div class="computed" id="f-computed" style="margin-top:14px"></div>
       <button class="btn primary" id="f-save" onclick="saveForm()">Guardar revisão</button>
       <button class="btn ghost" style="margin-top:10px" id="f-cancel" onclick="cancelEdit()" hidden>Cancelar edição</button>
     </div>
   `;
-  ['f-base',...ALLOWANCE_FIELDS.map(([k])=>'fx-'+k),...BENEFIT_FIELDS.map(([k])=>'fx-'+k),'f-plafond','f-stockpct']
+  ['f-annual',...ALLOWANCE_FIELDS.map(([k])=>'fx-'+k),...BENEFIT_FIELDS.map(([k])=>'fx-'+k),'f-plafond','f-stockpct']
     .forEach(id=>document.getElementById(id).addEventListener('input',updateComputed));
 }
 
@@ -756,7 +774,7 @@ function readExpenses(){
 function fillForm(r){
   document.getElementById('f-date').value = r? r.date : '';
   document.getElementById('f-level').value = r? r.level : 'M';
-  document.getElementById('f-base').value = r? r.baseMonthly : '';
+  document.getElementById('f-annual').value = r? Math.round(r.baseMonthly*MONTHS_PER_YEAR) : '';
   document.getElementById('f-band').value = r? r.banding : '';
   [...ALLOWANCE_FIELDS,...BENEFIT_FIELDS].forEach(([k])=> document.getElementById('fx-'+k).value = r? (r.fixed[k]||'') : '');
   document.getElementById('f-plafond').value = r? (r.plafond||'') : '';
@@ -792,7 +810,7 @@ function readForm(){
     date: document.getElementById('f-date').value,
     level: document.getElementById('f-level').value,
     banding: document.getElementById('f-band').value.trim(),
-    baseMonthly: +document.getElementById('f-base').value||0,
+    baseMonthly: (+document.getElementById('f-annual').value||0)/MONTHS_PER_YEAR,
     fixed, variable: readVariable(),
     plafond: +document.getElementById('f-plafond').value||0,
     benefits: readFlex(),
@@ -808,6 +826,8 @@ function updateComputed(){
   else prev = DATA[DATA.length-1] && editIndex===null ? DATA[DATA.length-1] : (editIndex>0?DATA[editIndex-1]:null);
   const dM = prev ? r.baseMonthly - prev.baseMonthly : 0;
   const pM = prev && prev.baseMonthly ? dM/prev.baseMonthly : 0;
+  const mb=document.getElementById('f-monthly');
+  if(mb) mb.innerHTML = `= <b>${eur(r.baseMonthly)}</b> / mês &nbsp;·&nbsp; ×${MONTHS_PER_YEAR} meses`;
   const flexT = flexTotal(r);
   const spBase = stockPlanBase(r);
   const spContrib = stockPlanContribution(r);
@@ -818,7 +838,7 @@ function updateComputed(){
     `Base: <b>${eur(spBase)}</b> &nbsp;·&nbsp; contribuição (${r.stockPlanPct||0}%): <b>${eur(spContrib)}</b><br>`+
     `Ganho do desconto 15%: <b style="color:var(--good)">${eur(spBen)}</b>`;
   document.getElementById('f-computed').innerHTML =
-    `Salário anual: <b>${eur(r.baseMonthly*MONTHS_PER_YEAR)}</b><br>`+
+    `Salário anual: <b>${eur(r.baseMonthly*MONTHS_PER_YEAR)}</b> (= ${eur(r.baseMonthly)}/mês)<br>`+
     `Aumento base vs revisão anterior: <b>${prev?(dM>=0?'+':'')+eur(dM)+' · '+pct(pM):'—'}</b><br>`+
     `Allowances: <b>${eur(allowanceTotal(r))}</b> · Benef. Fixos: <b>${eur(fixedBenefTotal(r))}</b> · Variável: <b>${eur(varTotal(r))}</b>`+
     (flexT>0?` · Flex: <b>${eur(flexT)}</b>`:'')+`<br>`+
