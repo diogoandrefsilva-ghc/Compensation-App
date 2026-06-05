@@ -173,18 +173,10 @@ details.tax .tbody{padding:0 16px 14px}
   <section id="view-resumo" class="active"></section>
   <!-- EVOLUÇÃO -->
   <section id="view-evol">
-    <div class="card" style="padding:0;margin-bottom:12px">
-      <div class="filter-head" id="filter-head" onclick="toggleFiltersPanel()">
-        <span>Filtros<span class="fcount" id="filter-count"></span></span>
-        <span class="chev" id="filter-chev">▾</span>
-      </div>
-      <div class="filter-body" id="filter-body" hidden>
-        <p class="hint" style="margin:0 0 10px">Toca para excluir itens da análise. Afeta todos os gráficos.</p>
-        <div class="filters" id="evol-filters"></div>
-      </div>
-    </div>
     <h2 class="title">Salário base mensal</h2>
     <div class="card"><div class="chartbox"><canvas id="c-base"></canvas></div></div>
+    <h2 class="title">Remuneração mensal</h2>
+    <div class="card"><div class="chartbox"><canvas id="c-monthly"></canvas></div></div>
     <h2 class="title">Total compensation por ano</h2>
     <div class="card"><div class="chartbox"><canvas id="c-total"></canvas></div></div>
     <small class="foot">Por ano usa-se a última revisão para base, allowances, benefícios fixos e Expenses Allowance, e a soma do ano para o variável. Toca nas barras para o detalhe.</small>
@@ -257,8 +249,8 @@ const ALLOWANCE_FIELDS = [
 /* BENEFÍCIOS FIXOS — campos inseridos manualmente (o Plano de Ações é CALCULADO, ver abaixo) */
 const BENEFIT_FIELDS = [
   ['comms','Plafond Telemóvel'],
-  ['health','Seguro de saúde'],
-  ['healthFamily','Seguro de saúde (família)'],
+  ['health','Desconto Seg. Saúde'],
+  ['healthFamily','Desconto Seg. Saúde (família)'],
 ];
 const STOCK_PLAN_LABEL = 'Plano de Ações';
 const STOCK_PLAN_DEFAULT_PCT = 10; // PAAT: 10% do (ordenado + prémios em conta − Flex)
@@ -499,7 +491,7 @@ function renderResumo(){
 
     <div class="grid2">
       <div class="card kpi tap edge-l" id="kpi-c-allow" onclick="toggleKpi('allow')"><span class="chev">▾</span><div class="lbl">Allowances / ano</div><div class="val">${eur(allowanceTotal(cur)+(cur.plafond||0))}</div><div class="note">lunch + car${cur.plafond?' + expenses':''}</div></div>
-      <div class="card kpi tap edge-r" id="kpi-c-var" onclick="toggleKpi('var')"><span class="chev">▾</span><div class="lbl">Variável / ano</div><div class="val">${eur(varAno)}</div><div class="note">soma dos prémios do ano</div></div>
+      <div class="card kpi tap edge-r" id="kpi-c-var" onclick="toggleKpi('var')"><span class="chev">▾</span><div class="lbl">Bonus / ano</div><div class="val">${eur(varAno)}</div><div class="note">soma dos prémios do ano</div></div>
     </div>
     <div class="kpi-detail edge-l" id="kpi-d-allow"><div class="card"><div class="rows">
       ${cur.fixed.lunch?`<div class="rline"><span class="k">Lunch Allowance</span><span class="v">${eur(cur.fixed.lunch)}</span></div>`:''}
@@ -509,7 +501,7 @@ function renderResumo(){
     </div></div></div>
     <div class="kpi-detail edge-r" id="kpi-d-var"><div class="card"><div class="rows">
       ${VAR_FIELDS.filter(([k])=>yearVarByField[k]).map(([k,lbl])=>`<div class="rline"><span class="k">${lbl}</span><span class="v">${eur(yearVarByField[k])}</span></div>`).join('')||`<div class="rline"><span class="k muted">Sem prémios neste ano</span><span class="v">${eur(0)}</span></div>`}
-      <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total variável (${curYear})</b></span><span class="v"><b>${eur(varAno)}</b></span></div>
+      <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total bonus (${curYear})</b></span><span class="v"><b>${eur(varAno)}</b></span></div>
     </div></div></div>
 
     ${isLastOfYear?`
@@ -517,18 +509,18 @@ function renderResumo(){
       <span class="lbl">Total cash ${curYear} (estimado)</span>
       <span class="big">${eur(totalCashC)}</span>
       ${prevYr?`<span class="delta ${clsCash}">${arrowCash} ${dCash>=0?'+':''}${eur(dCash)} · ${pct(pCash)} vs ${prevYr.year}</span>`:''}
-      <span class="muted" style="font-size:12px">base ${eur(annualBase(cur))} · allowances ${eur(allowanceTotal(cur))} · variável ${eur(yr?yr.variable:0)}${cur.plafond?` · expenses ${eur(cur.plafond)}`:''}</span>
+      <span class="muted" style="font-size:12px">base ${eur(annualBase(cur))} · allowances ${eur(allowanceTotal(cur))} · bonus ${eur(yr?yr.variable:0)}${cur.plafond?` · expenses ${eur(cur.plafond)}`:''}</span>
     </div>
 
     <h2 class="title">Repartição fiscal do cash · ${dlabel(cur.date)}</h2>
     <div class="grid2">
-      <div class="card kpi tap edge-l" id="kpi-c-trib" onclick="toggleKpi('trib')"><span class="chev">▾</span><div class="lbl">Sujeito a impostos</div><div class="val">${eur(tributavel)}</div><div class="note">base + car + variável${cur.plafond?' + expenses':''}</div></div>
+      <div class="card kpi tap edge-l" id="kpi-c-trib" onclick="toggleKpi('trib')"><span class="chev">▾</span><div class="lbl">Sujeito a impostos</div><div class="val">${eur(tributavel)}</div><div class="note">base + car + bonus${cur.plafond?' + expenses':''}</div></div>
       <div class="card kpi tap edge-r" id="kpi-c-ntrib" onclick="toggleKpi('ntrib')"><span class="chev">▾</span><div class="lbl">Não sujeito a impostos</div><div class="val">${eur(naoTributavel)}</div><div class="note">lunch${(flexT+expBen)?' + utilizações':''}</div></div>
     </div>
     <div class="kpi-detail edge-l" id="kpi-d-trib"><div class="card"><div class="rows">
       <div class="rline"><span class="k">Salário base (anual)</span><span class="v">${eur(annualBase(cur))}</span></div>
       ${cur.fixed.car?`<div class="rline"><span class="k">Car Allowance</span><span class="v">${eur(cur.fixed.car)}</span></div>`:''}
-      <div class="rline"><span class="k">Variável</span><span class="v">${eur(varAno)}</span></div>
+      <div class="rline"><span class="k">Bonus</span><span class="v">${eur(varAno)}</span></div>
       ${cur.plafond?`<div class="rline"><span class="k">Expenses Allowance</span><span class="v">${eur(cur.plafond)}</span></div>`:''}
       ${(cur.benefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k" style="color:var(--mut)">− ${flexLabel(b.type)}</span><span class="v" style="color:var(--mut);font-weight:500">−${eur(b.amount)}</span></div>`).join('')}
       ${(cur.expenseBenefits||[]).filter(b=>b.amount).map(b=>`<div class="rline"><span class="k" style="color:var(--mut)">− ${expenseLabel(b.type)}</span><span class="v" style="color:var(--mut);font-weight:500">−${eur(b.amount)}</span></div>`).join('')}
@@ -542,14 +534,14 @@ function renderResumo(){
     </div></div></div>
 
     <h2 class="title">Benefícios fixos · ${dlabel(cur.date)}</h2>
-    <p class="muted" style="margin:-4px 0 10px;font-size:12px">Perks atribuídos pela empresa. Não viram dinheiro: se não os usares, perdes — por isso ficam fora do Total Cash.</p>
+    <p class="muted" style="margin:-4px 0 10px;font-size:12px">Componente de benefícios que não são convertidos em cash caso não sejam utilizados</p>
     <div class="grid2">
       <div class="card kpi"><div class="lbl">Telemóvel / ano</div><div class="val">${eur(telemovel)}</div><div class="note">plafond de comunicações</div></div>
-      <div class="card kpi tap edge-r" id="kpi-c-desc" onclick="toggleKpi('desc')"><span class="chev">▾</span><div class="lbl">Descontos / ano</div><div class="val">${eur(descontos)}</div><div class="note">seguro saúde + ações</div></div>
+      <div class="card kpi tap edge-r" id="kpi-c-desc" onclick="toggleKpi('desc')"><span class="chev">▾</span><div class="lbl">Descontos / ano</div><div class="val">${eur(descontos)}</div><div class="note">desc. seg. saúde + ações</div></div>
     </div>
     <div class="kpi-detail edge-r" id="kpi-d-desc"><div class="card"><div class="rows">
-      <div class="rline"><span class="k">Seguro Saúde</span><span class="v">${eur(insurancesTotal(cur))}</span></div>
-      <div class="rline"><span class="k">Ações <span class="muted" style="font-weight:400">(Desc. 15%)</span></span><span class="v"><sup style="font-size:9px;color:var(--mut)">*</sup>&thinsp;${eur(spBen)}</span></div>
+      <div class="rline"><span class="k">Desconto Seg. Saúde</span><span class="v">${eur(insurancesTotal(cur))}</span></div>
+      <div class="rline"><span class="k">Desconto Ações <span class="muted" style="font-weight:400">(15%)</span></span><span class="v"><sup style="font-size:9px;color:var(--mut)">*</sup>&thinsp;${eur(spBen)}</span></div>
       <div style="padding-left:10px;font-size:10px;color:var(--mut);margin:-6px 0 4px">* ganho estimado (valor indicativo)</div>
       <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total descontos</b></span><span class="v"><b>${eur(descontos)}</b></span></div>
       </div>
@@ -634,8 +626,8 @@ function renderRevs(){
             <div class="rline" style="margin-top:2px"><span class="k" style="color:var(--warn);font-weight:700">Total Cash</span><span class="v" style="color:var(--warn);font-weight:800">${eur(cashR)}</span></div>
             <div class="rline" style="border-top:1px dashed var(--line);padding-top:10px;margin-top:2px"><span class="k">Benefícios Fixos</span><span class="v">${eur(fixedBenefTotal(r))}</span></div>
             ${r.fixed.comms?`<div class="rline sub"><span class="k" style="padding-left:10px">· Plafond Telemóvel</span><span class="v">${eur(r.fixed.comms)}</span></div>`:''}
-            ${insurancesTotal(r)?`<div class="rline sub"><span class="k" style="padding-left:10px">· Seguro Saúde</span><span class="v">${eur(insurancesTotal(r))}</span></div>`:''}
-            ${stockPlanBenefit(r)?`<div class="rline sub"><span class="k" style="padding-left:10px">· Ações <span class="muted">(Desc. 15%)</span></span><span class="v"><sup style="font-size:9px;color:var(--mut)">*</sup>&thinsp;${eur(stockPlanBenefit(r))}</span></div>
+            ${insurancesTotal(r)?`<div class="rline sub"><span class="k" style="padding-left:10px">· Desconto Seg. Saúde</span><span class="v">${eur(insurancesTotal(r))}</span></div>`:''}
+            ${stockPlanBenefit(r)?`<div class="rline sub"><span class="k" style="padding-left:10px">· Desconto Ações <span class="muted">(15%)</span></span><span class="v"><sup style="font-size:9px;color:var(--mut)">*</sup>&thinsp;${eur(stockPlanBenefit(r))}</span></div>
             <div style="padding-left:20px;font-size:10px;color:var(--mut);margin:-4px 0 4px">* ganho estimado (valor indicativo)</div>`:''}
             <div class="rline" style="margin-top:2px"><span class="k" style="color:var(--warn);font-weight:700">Total Compensation</span><span class="v" style="color:var(--warn);font-weight:800">${eur(tcR)}</span></div>
             ${(flexTotal(r)+expenseBenefitsTotal(r))?`<div class="rline" style="border-top:1px dashed var(--line);padding-top:10px;margin-top:4px"><span class="k">Utilização de allowances/prémios</span><span class="v">${eur(flexTotal(r)+expenseBenefitsTotal(r))}</span></div>
@@ -853,7 +845,7 @@ function updateComputed(){
   document.getElementById('f-computed').innerHTML =
     `Salário anual: <b>${eur(r.baseMonthly*MONTHS_PER_YEAR)}</b> (= ${eur(r.baseMonthly)}/mês)<br>`+
     `Aumento base vs revisão anterior: <b>${prev?(dM>=0?'+':'')+eur(dM)+' · '+pct(pM):'—'}</b><br>`+
-    `Allowances: <b>${eur(allowanceTotal(r))}</b> · Benef. Fixos: <b>${eur(fixedBenefTotal(r))}</b> · Variável: <b>${eur(varTotal(r))}</b>`+
+    `Allowances: <b>${eur(allowanceTotal(r))}</b> · Benef. Fixos: <b>${eur(fixedBenefTotal(r))}</b> · Bonus: <b>${eur(varTotal(r))}</b>`+
     (flexT>0?` · Flex: <b>${eur(flexT)}</b>`:'')+`<br>`+
     `<b>Total compensation: ${eur(totalComp(r))}</b>`;
 }
@@ -968,11 +960,40 @@ function renderCharts(){
         y:{grid,ticks:{...tick,callback:v=>v+' €'}}}}
   });
 
+  // 2) remuneração mensal — base + allowances/12 (com toggle por dataset)
+  charts.monthly = new Chart(document.getElementById('c-monthly'),{
+    type:'line',
+    data:{datasets:[
+      {label:'Base',
+        data:DATA.map(r=>({x:dyear(r.date),y:r.baseMonthly,d:r.date})),
+        borderColor:'#6ea8ff',backgroundColor:'rgba(110,168,255,.15)',fill:true,tension:.25,pointRadius:3},
+      {label:'Lunch',
+        data:DATA.map(r=>({x:dyear(r.date),y:(r.fixed.lunch||0)/12,d:r.date})),
+        borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,.12)',fill:false,tension:.25,pointRadius:3},
+      {label:'Car',
+        data:DATA.map(r=>({x:dyear(r.date),y:(r.fixed.car||0)/12,d:r.date})),
+        borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.12)',fill:false,tension:.25,pointRadius:3},
+      {label:'Expenses',
+        data:DATA.map(r=>({x:dyear(r.date),y:(r.plafond||0)/12,d:r.date})),
+        borderColor:'#22d3ee',backgroundColor:'rgba(34,211,238,.12)',fill:false,tension:.25,pointRadius:3},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#cdd7f5',boxWidth:12,font:{size:11}}},
+        tooltip:{callbacks:{
+          title:items=>dlabel(items[0].raw.d),
+          label:item=>` ${item.dataset.label}: ${eur(item.parsed.y)} / mês`}}},
+      scales:{
+        x:{type:'linear',min:Math.floor(dyear(DATA[0].date)),max:Math.ceil(dyear(DATA[DATA.length-1].date)),
+           ticks:{...tick,stepSize:2,precision:0,callback:v=>v}},
+        y:{grid,ticks:{...tick,callback:v=>v+' €'}}}}
+  });
+
   const yrs=byYearF();
+  const ALLOWANCE_SHORT = {lunch:'Lunch', car:'Car'};
   const allowBreakdown = i => {
     const out = ALLOWANCE_FIELDS.filter(([k])=>!excluded.has(exKey('allow',k)) && yrs[i].last.fixed[k])
-        .map(([k,lbl])=>'   · '+lbl+': '+eur(yrs[i].last.fixed[k]));
-    if(yrs[i].plafond) out.push('   · Expenses Allowance: '+eur(yrs[i].plafond));
+        .map(([k])=>'   · '+(ALLOWANCE_SHORT[k]||k)+': '+eur(yrs[i].last.fixed[k]));
+    if(yrs[i].plafond) out.push('   · Expenses: '+eur(yrs[i].plafond));
     return out;
   };
   const benefBreakdown = i => {
@@ -982,7 +1003,7 @@ function renderCharts(){
     return out;
   };
 
-  // 2) total compensation por ano — empilhado, com tooltips detalhados
+  // 3) total compensation por ano — empilhado, com tooltips detalhados
   charts.total = new Chart(document.getElementById('c-total'),{
     type:'bar',
     data:{labels:yrs.map(y=>y.year),
@@ -990,7 +1011,7 @@ function renderCharts(){
         {label:'Base',      kind:'base',  data:yrs.map(y=>y.annualBase), backgroundColor:'#3b82f6'},
         {label:'Allowances',kind:'allow', data:yrs.map(y=>y.allowances + y.plafond), backgroundColor:'#8b5cf6'},
         {label:'Benef. Fixos',kind:'benef', data:yrs.map(y=>y.benefits),   backgroundColor:'#22d3ee'},
-        {label:'Variável',  kind:'var',   data:yrs.map(y=>y.variable),   backgroundColor:'#4ade80'},
+        {label:'Bonus',     kind:'var',   data:yrs.map(y=>y.variable),   backgroundColor:'#4ade80'},
       ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend,tooltip:{
@@ -1000,7 +1021,7 @@ function renderCharts(){
             if(k==='base')  return ' Base: '+eur(y.annualBase)+'  ('+eur(y.baseMonthly)+'/mês)';
             if(k==='allow') return ' Allowances: '+eur(y.allowances + y.plafond);
             if(k==='benef') return ' Benef. Fixos: '+eur(y.benefits);
-            return ' Variável: '+eur(y.variable);},
+            return ' Bonus: '+eur(y.variable);},
           afterLabel:ctx=> ctx.dataset.kind==='allow' ? allowBreakdown(ctx.dataIndex)
                          : ctx.dataset.kind==='benef' ? benefBreakdown(ctx.dataIndex) : '',
           footer:items=>'Total: '+eur(yrs[items[0].dataIndex].total)}}},
