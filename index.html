@@ -47,8 +47,10 @@ h2.title{font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--
 .kpi.tap{cursor:pointer;position:relative}
 .kpi.tap .chev{position:absolute;top:12px;right:12px;color:var(--mut);font-size:12px;transition:transform .2s}
 .kpi.tap.open .chev{transform:rotate(180deg)}
+.kpi.tap.open{border-color:var(--acc);background:linear-gradient(160deg,#1a2552,#23335f);box-shadow:0 0 0 1px rgba(110,168,255,.28),0 6px 22px rgba(0,0,0,.25)}
 .kpi-detail{display:none}
 .kpi-detail.open{display:block}
+.kpi-detail.open>.card{border-color:rgba(110,168,255,.45)}
 .rows{display:flex;flex-direction:column;gap:8px}
 .rline{display:flex;justify-content:space-between;align-items:center;font-size:14px}
 .rline .k{color:var(--mut)}
@@ -535,38 +537,26 @@ function renderResumo(){
 
     ${isLastOfYear?`
     <h2 class="title">Repartição fiscal · ${dlabel(cur.date)}</h2>
-    <details class="card tax">
-      <summary>
-        <div><div class="tlbl">Sujeito a impostos</div><div class="tval">${eur(tributavel)}</div></div>
-        <span class="chev">▾</span>
-      </summary>
-      <div class="tbody">
-        <div class="rows">
-          <div class="rline"><span class="k">Salário base (anual)</span><span class="v">${eur(annualBase(cur))}</span></div>
-          ${cur.fixed.car?`<div class="rline"><span class="k">Car Allowance</span><span class="v">${eur(cur.fixed.car)}</span></div>`:''}
-          <div class="rline"><span class="k">Variável</span><span class="v">${eur(varAno)}</span></div>
-          ${cur.plafond?`<div class="rline"><span class="k">Expenses Allowance</span><span class="v">${eur(cur.plafond)}</span></div>`:''}
-          ${flexT?`<div class="rline"><span class="k" style="color:var(--mut)">− Utilização de Flex</span><span class="v" style="color:var(--mut);font-weight:500">−${eur(flexT)}</span></div>`:''}
-          ${expBen?`<div class="rline"><span class="k" style="color:var(--mut)">− Utilização do Expenses Allowance</span><span class="v" style="color:var(--mut);font-weight:500">−${eur(expBen)}</span></div>`:''}
-          <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total sujeito a impostos</b></span><span class="v"><b>${eur(tributavel)}</b></span></div>
-        </div>
-      </div>
-    </details>
-    <details class="card tax">
-      <summary>
-        <div><div class="tlbl">Não sujeito a impostos</div><div class="tval">${eur(naoTributavel)}</div></div>
-        <span class="chev">▾</span>
-      </summary>
-      <div class="tbody">
-        <div class="rows">
-          ${cur.fixed.lunch?`<div class="rline"><span class="k">Lunch Allowance</span><span class="v">${eur(cur.fixed.lunch)}</span></div>`:''}
-          <div class="rline"><span class="k">Benefícios Fixos</span><span class="v">${eur(benT)}</span></div>
-          ${flexT?`<div class="rline"><span class="k">Utilização de Flex</span><span class="v">${eur(flexT)}</span></div>`:''}
-          ${expBen?`<div class="rline"><span class="k">Utilização do Expenses Allowance</span><span class="v">${eur(expBen)}</span></div>`:''}
-          <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total não sujeito a impostos</b></span><span class="v"><b>${eur(naoTributavel)}</b></span></div>
-        </div>
-      </div>
-    </details>`:''}
+    <div class="grid2">
+      <div class="card kpi tap" id="kpi-c-trib" onclick="toggleKpi('trib')"><span class="chev">▾</span><div class="lbl">Sujeito a impostos</div><div class="val">${eur(tributavel)}</div><div class="note">base + car + variável${cur.plafond?' + expenses':''}</div></div>
+      <div class="card kpi tap" id="kpi-c-ntrib" onclick="toggleKpi('ntrib')"><span class="chev">▾</span><div class="lbl">Não sujeito a impostos</div><div class="val">${eur(naoTributavel)}</div><div class="note">almoço + benef. fixos${(flexT+expBen)?' + utilizações':''}</div></div>
+    </div>
+    <div class="kpi-detail" id="kpi-d-trib"><div class="card"><div class="rows">
+      <div class="rline"><span class="k">Salário base (anual)</span><span class="v">${eur(annualBase(cur))}</span></div>
+      ${cur.fixed.car?`<div class="rline"><span class="k">Car Allowance</span><span class="v">${eur(cur.fixed.car)}</span></div>`:''}
+      <div class="rline"><span class="k">Variável</span><span class="v">${eur(varAno)}</span></div>
+      ${cur.plafond?`<div class="rline"><span class="k">Expenses Allowance</span><span class="v">${eur(cur.plafond)}</span></div>`:''}
+      ${flexT?`<div class="rline"><span class="k" style="color:var(--mut)">− Utilização de Flex</span><span class="v" style="color:var(--mut);font-weight:500">−${eur(flexT)}</span></div>`:''}
+      ${expBen?`<div class="rline"><span class="k" style="color:var(--mut)">− Utilização do Expenses Allowance</span><span class="v" style="color:var(--mut);font-weight:500">−${eur(expBen)}</span></div>`:''}
+      <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total sujeito a impostos</b></span><span class="v"><b>${eur(tributavel)}</b></span></div>
+    </div></div></div>
+    <div class="kpi-detail" id="kpi-d-ntrib"><div class="card"><div class="rows">
+      ${cur.fixed.lunch?`<div class="rline"><span class="k">Lunch Allowance</span><span class="v">${eur(cur.fixed.lunch)}</span></div>`:''}
+      <div class="rline"><span class="k">Benefícios Fixos</span><span class="v">${eur(benT)}</span></div>
+      ${flexT?`<div class="rline"><span class="k">Utilização de Flex</span><span class="v">${eur(flexT)}</span></div>`:''}
+      ${expBen?`<div class="rline"><span class="k">Utilização do Expenses Allowance</span><span class="v">${eur(expBen)}</span></div>`:''}
+      <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total não sujeito a impostos</b></span><span class="v"><b>${eur(naoTributavel)}</b></span></div>
+    </div></div></div>`:''}
 
     <small class="foot">${DATA.length} revisões registadas</small>
   `;
