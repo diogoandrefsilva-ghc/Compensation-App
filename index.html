@@ -693,6 +693,8 @@ function buildForm(){
           <div class="sectitle">Utilização do Expenses Allowance</div>
           <div id="expense-list"></div>
           <button class="btn ghost sm" type="button" onclick="addExpenseRow()" style="margin-bottom:6px">+ Adicionar utilização</button>
+          <button class="btn ghost sm" type="button" onclick="pullFromExpensesAcc(this)" style="margin:0 0 6px 6px">⬇ Puxar do Expenses-Acc</button>
+          <p class="hint" style="margin-top:0;font-size:11px;opacity:.7">Substitui a utilização por dados em tempo real do Expenses-Acc, segundo a FY da data da revisão (ano + 1 → FY).</p>
         </div>
       </details>
 
@@ -778,6 +780,45 @@ function readExpenses(){
     type: row.querySelector('.e-type').value,
     amount: +row.querySelector('.e-amount').value||0,
   })).filter(b=>b.amount>0 || b.type);
+}
+/* ---- Puxar utilização do Expenses-Acc (live, sem token: leitura pública) ----
+   FY deduzida do ano da data da revisão: ano + 1 → FY (ex.: 2019→FY20, 2025→FY26). */
+const EXPENSES_ACC_URL = 'https://raw.githubusercontent.com/diogoandrefsilva-ghc/AppDataJSON/main/expensesacc-data.json';
+const EXP_TYPE_MAP = { 'Galp':'galp', 'Meal':'restauracao', 'Telemóveis':'extraComms', 'Outro':'other' };
+const fyForYear = y => 'FY' + String((y + 1) % 100).padStart(2,'0');
+async function pullFromExpensesAcc(btn){
+  const dateVal = document.getElementById('f-date').value;
+  const year = dateVal ? new Date(dateVal).getFullYear() : new Date().getFullYear();
+  const fy = fyForYear(year);
+  const label = btn ? btn.textContent : '';
+  if(btn){ btn.disabled=true; btn.textContent='⏳ A obter '+fy+'…'; }
+  try{
+    const res = await fetch(EXPENSES_ACC_URL + '?t=' + Date.now(), {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    const exps = (data.expenses||[]).filter(e=>e.fy===fy);
+    if(!exps.length){
+      alert('Sem despesas para '+fy+' (ano '+year+') no Expenses-Acc.');
+      if(btn){ btn.textContent=label; btn.disabled=false; }
+      return;
+    }
+    const eff = e => (+e.finalAmount || +e.amount || 0);
+    const byType = {};
+    exps.forEach(e=>{ const k = EXP_TYPE_MAP[e.type] || 'other'; byType[k]=(byType[k]||0)+eff(e); });
+    const list = document.getElementById('expense-list');
+    list.innerHTML='';
+    Object.entries(byType).forEach(([type,amount])=>{
+      if(amount>0) addExpenseRow({type, amount: Math.round(amount*100)/100});
+    });
+    updateComputed();
+    const total = Object.values(byType).reduce((s,v)=>s+v,0);
+    if(btn){ btn.textContent='✓ '+fy+': '+eur(total); setTimeout(()=>{ btn.textContent=label; },2800); }
+  }catch(err){
+    alert('Não consegui obter os dados do Expenses-Acc: '+(err && err.message ? err.message : err));
+    if(btn) btn.textContent=label;
+  }finally{
+    if(btn) btn.disabled=false;
+  }
 }
 function fillForm(r){
   document.getElementById('f-date').value = r? r.date : '';
