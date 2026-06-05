@@ -76,7 +76,11 @@ canvas{max-width:100%}
 .rev .lvl{font-weight:700;margin-top:2px}
 .rev .band{font-size:12px;color:var(--acc);margin-top:1px}
 .rev .amt{text-align:right}
-.rev .amt .m{font-size:18px;font-weight:800}
+.rev .amt .mrow{font-size:11px;color:var(--mut);line-height:1.5}
+.rev .amt .mrow .lab{font-weight:600}
+.rev .amt .mrow .m{font-size:14px;font-weight:800;color:var(--txt)}
+.rev .amt .mrow .u{font-size:10px;font-weight:600;color:var(--mut)}
+.rev .amt .cmpdiv{height:1px;background:var(--line);opacity:.4;margin:7px 0 7px auto;width:60%}
 .rev .amt .a{font-size:11px;color:var(--mut)}
 .rev .amt .cmp{font-size:10px;color:var(--mut);margin-top:4px;line-height:1.4}
 .rev .amt .cmp .val{font-weight:700;color:var(--txt)}
@@ -609,8 +613,9 @@ function renderRevs(){
             ${r.banding?`<div class="band">${r.banding}</div>`:''}
           </div>
           <div class="amt">
-            <div class="m">${eur(r.baseMonthly)} <span style="font-size:11px;font-weight:600;color:var(--mut)">/mês</span></div>
-            ${prev?`${dM!==0?`<div class="cmp">Base Pay: <span class="val ${cls}">${pct(pM)} · ${dM>=0?'+':''}${eur(dM)}</span></div>`:''}${vt?`<div class="cmp">Prémio: <span class="val up">${eur(vt)}</span></div>`:''}${dAllow!==0?`<div class="cmp">Allowances: <span class="val ${clsAllow}">${pct(pAllow)} · ${dAllow>=0?'+':''}${eur(dAllow)}</span></div>`:''}${(dM===0&&dAllow===0&&!vt)?`<div class="a">sem variação</div>`:''}`:`<div class="a">início${vt?` · prémio ${eur(vt)}`:''}</div>`}
+            <div class="mrow"><span class="lab">Base Pay:</span> <span class="m">${eur(r.baseMonthly)}</span> <span class="u">/ mês</span></div>
+            <div class="mrow"><span class="lab">Allowances:</span> <span class="m">${eur((allowanceTotal(r)+(r.plafond||0))/12)}</span> <span class="u">/ mês</span></div>
+            ${prev?`${(dM!==0||dAllow!==0||vt)?`<div class="cmpdiv"></div>`:''}${dM!==0?`<div class="cmp">Base Pay: <span class="val ${cls}">${pct(pM)} · ${dM>=0?'+':''}${eur(dM)}</span></div>`:''}${dAllow!==0?`<div class="cmp">Allowances: <span class="val ${clsAllow}">${pct(pAllow)} · ${dAllow>=0?'+':''}${eur(dAllow)}</span></div>`:''}${vt?`<div class="cmp">Prémio: <span class="val up">${eur(vt)}</span></div>`:''}${(dM===0&&dAllow===0&&!vt)?`<div class="a">sem variação</div>`:''}`:`<div class="a">início${vt?` · prémio ${eur(vt)}`:''}</div>`}
           </div>
         </div>
         <div class="detail">
