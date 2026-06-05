@@ -486,7 +486,7 @@ function renderResumo(){
   const clsCash = dCash>0?'up':dCash<0?'down':'flat';
   const arrowCash = dCash>0?'▲':dCash<0?'▼':'■';
   // a repartição fiscal divide o Total Cash; os benefícios fixos saem para fora
-  const naoTributavel = (cur.fixed.lunch||0) + flexT + expBen; // almoço + flex + utilização do plafond
+  const naoTributavel = (cur.fixed.lunch||0) + flexT + expBen; // lunch + flex + utilização do plafond
   const tributavel = totalCashC - naoTributavel;
 
   el.innerHTML = navBar + `
@@ -523,7 +523,7 @@ function renderResumo(){
     <h2 class="title">Repartição fiscal do cash · ${dlabel(cur.date)}</h2>
     <div class="grid2">
       <div class="card kpi tap edge-l" id="kpi-c-trib" onclick="toggleKpi('trib')"><span class="chev">▾</span><div class="lbl">Sujeito a impostos</div><div class="val">${eur(tributavel)}</div><div class="note">base + car + variável${cur.plafond?' + expenses':''}</div></div>
-      <div class="card kpi tap edge-r" id="kpi-c-ntrib" onclick="toggleKpi('ntrib')"><span class="chev">▾</span><div class="lbl">Não sujeito a impostos</div><div class="val">${eur(naoTributavel)}</div><div class="note">almoço${(flexT+expBen)?' + utilizações':''}</div></div>
+      <div class="card kpi tap edge-r" id="kpi-c-ntrib" onclick="toggleKpi('ntrib')"><span class="chev">▾</span><div class="lbl">Não sujeito a impostos</div><div class="val">${eur(naoTributavel)}</div><div class="note">lunch${(flexT+expBen)?' + utilizações':''}</div></div>
     </div>
     <div class="kpi-detail edge-l" id="kpi-d-trib"><div class="card"><div class="rows">
       <div class="rline"><span class="k">Salário base (anual)</span><span class="v">${eur(annualBase(cur))}</span></div>
@@ -607,6 +607,9 @@ function renderRevs(){
       const clsAllow = dAllow>0?'up':dAllow<0?'down':'flat';
       const promo = prev && prev.level!==r.level;
       const vt = varTotal(r);
+      // subtotais (coerentes com as linhas mostradas: prémios = total do ano)
+      const cashR = annualBase(r) + allowanceTotal(r) + (r.plafond||0) + yearVarTotal;
+      const tcR   = cashR + fixedBenefTotal(r);
       html += `
       <div class="rev" id="rev-${i}">
         <div class="top" onclick="toggleRev(${i})">
@@ -628,12 +631,14 @@ function renderRevs(){
             <div class="rline"><span class="k">Allowances</span><span class="v">${eur(allowanceTotal(r)+(r.plafond||0))}</span></div>
             ${ALLOWANCE_FIELDS.filter(([k])=>r.fixed[k]).map(([k,lbl])=>`<div class="rline sub"><span class="k" style="padding-left:10px">· ${lbl}</span><span class="v">${eur(r.fixed[k])}</span></div>`).join('')}
             ${r.plafond?`<div class="rline sub"><span class="k" style="padding-left:10px">· Expenses Allowance</span><span class="v">${eur(r.plafond)}</span></div>`:''}
+            <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k" style="color:var(--warn);font-weight:700">Total Cash</span><span class="v" style="color:var(--warn);font-weight:800">${eur(cashR)}</span></div>
             <div class="rline"><span class="k">Benefícios Fixos</span><span class="v">${eur(fixedBenefTotal(r))}</span></div>
             ${r.fixed.comms?`<div class="rline sub"><span class="k" style="padding-left:10px">· Plafond Telemóvel</span><span class="v">${eur(r.fixed.comms)}</span></div>`:''}
             ${insurancesTotal(r)?`<div class="rline sub"><span class="k" style="padding-left:10px">· Seguro Saúde</span><span class="v">${eur(insurancesTotal(r))}</span></div>`:''}
             ${stockPlanBenefit(r)?`<div class="rline sub"><span class="k" style="padding-left:10px">· Ações <span class="muted">(Desc. 15%)</span></span><span class="v"><sup style="font-size:9px;color:var(--mut)">*</sup>&thinsp;${eur(stockPlanBenefit(r))}</span></div>
             <div style="padding-left:20px;font-size:10px;color:var(--mut);margin:-4px 0 4px">* ganho estimado (valor indicativo)</div>`:''}
-            ${(flexTotal(r)+expenseBenefitsTotal(r))?`<div class="rline" style="margin-top:6px"><span class="k">Utilização de allowances/prémios</span><span class="v">${eur(flexTotal(r)+expenseBenefitsTotal(r))}</span></div>
+            <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k" style="color:var(--warn);font-weight:700">Total Compensation</span><span class="v" style="color:var(--warn);font-weight:800">${eur(tcR)}</span></div>
+            ${(flexTotal(r)+expenseBenefitsTotal(r))?`<div class="rline" style="border-top:1px dashed var(--line);padding-top:10px;margin-top:4px"><span class="k">Utilização de allowances/prémios</span><span class="v">${eur(flexTotal(r)+expenseBenefitsTotal(r))}</span></div>
             ${(r.benefits||[]).filter(b=>b.amount).map(b=>`<div class="rline sub"><span class="k" style="padding-left:10px">· ${flexLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join('')}
             ${(r.expenseBenefits||[]).filter(b=>b.amount).map(b=>`<div class="rline sub"><span class="k" style="padding-left:10px">· ${expenseLabel(b.type)}</span><span class="v">${eur(b.amount)}</span></div>`).join('')}`:''}
           </div>
