@@ -173,8 +173,6 @@ details.tax .tbody{padding:0 16px 14px}
   <section id="view-resumo" class="active"></section>
   <!-- EVOLUÇÃO -->
   <section id="view-evol">
-    <h2 class="title">Salário base mensal</h2>
-    <div class="card"><div class="chartbox"><canvas id="c-base"></canvas></div></div>
     <h2 class="title">Remuneração mensal</h2>
     <div class="card"><div class="chartbox"><canvas id="c-monthly"></canvas></div></div>
     <h2 class="title">Total compensation por ano</h2>
@@ -944,48 +942,24 @@ function renderCharts(){
   const grid={color:'rgba(148,163,200,.12)'}, tick={color:'#94a3c8',font:{size:10}};
   const legend={labels:{color:'#cdd7f5',boxWidth:12,font:{size:11}}};
 
-  // 1) salário base mensal — escala temporal (revisões a meio do ano ficam entre os anos)
-  charts.base = new Chart(document.getElementById('c-base'),{
-    type:'line',
-    data:{datasets:[{label:'Base mensal',
-      data:DATA.map(r=>({x:dyear(r.date),y:r.baseMonthly,d:r.date})),
-      borderColor:'#6ea8ff',backgroundColor:'rgba(110,168,255,.15)',fill:true,tension:.25,pointRadius:3}]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend,tooltip:{callbacks:{
-        title:items=>dlabel(items[0].raw.d),
-        label:item=>'Base: '+eur(item.parsed.y)+' / mês'}}},
-      scales:{
-        x:{type:'linear',min:Math.floor(dyear(DATA[0].date)),max:Math.ceil(dyear(DATA[DATA.length-1].date)),
-           ticks:{...tick,stepSize:2,precision:0,callback:v=>v}},
-        y:{grid,ticks:{...tick,callback:v=>v+' €'}}}}
-  });
-
-  // 2) remuneração mensal — base + allowances/12 (com toggle por dataset)
+  // 1) remuneração mensal — empilhado por revisão: base + allowances/12 (com toggle por dataset)
+  const mLabels = DATA.map(r=>dlabel(r.date));
   charts.monthly = new Chart(document.getElementById('c-monthly'),{
-    type:'line',
-    data:{datasets:[
-      {label:'Base',
-        data:DATA.map(r=>({x:dyear(r.date),y:r.baseMonthly,d:r.date})),
-        borderColor:'#6ea8ff',backgroundColor:'rgba(110,168,255,.15)',fill:true,tension:.25,pointRadius:3},
-      {label:'Lunch',
-        data:DATA.map(r=>({x:dyear(r.date),y:(r.fixed.lunch||0)/12,d:r.date})),
-        borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,.12)',fill:false,tension:.25,pointRadius:3},
-      {label:'Car',
-        data:DATA.map(r=>({x:dyear(r.date),y:(r.fixed.car||0)/12,d:r.date})),
-        borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.12)',fill:false,tension:.25,pointRadius:3},
-      {label:'Expenses',
-        data:DATA.map(r=>({x:dyear(r.date),y:(r.plafond||0)/12,d:r.date})),
-        borderColor:'#22d3ee',backgroundColor:'rgba(34,211,238,.12)',fill:false,tension:.25,pointRadius:3},
-    ]},
+    type:'bar',
+    data:{labels:mLabels,
+      datasets:[
+        {label:'Base',     data:DATA.map(r=>r.baseMonthly),          backgroundColor:'#3b82f6'},
+        {label:'Lunch',    data:DATA.map(r=>(r.fixed.lunch||0)/12),  backgroundColor:'#f59e0b'},
+        {label:'Car',      data:DATA.map(r=>(r.fixed.car||0)/12),    backgroundColor:'#a78bfa'},
+        {label:'Expenses', data:DATA.map(r=>(r.plafond||0)/12),      backgroundColor:'#22d3ee'},
+      ]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:'#cdd7f5',boxWidth:12,font:{size:11}}},
-        tooltip:{callbacks:{
-          title:items=>dlabel(items[0].raw.d),
-          label:item=>` ${item.dataset.label}: ${eur(item.parsed.y)} / mês`}}},
-      scales:{
-        x:{type:'linear',min:Math.floor(dyear(DATA[0].date)),max:Math.ceil(dyear(DATA[DATA.length-1].date)),
-           ticks:{...tick,stepSize:2,precision:0,callback:v=>v}},
-        y:{grid,ticks:{...tick,callback:v=>v+' €'}}}}
+      plugins:{legend,tooltip:{
+        filter:item=>item.parsed.y!==0,
+        callbacks:{
+          label:ctx=>` ${ctx.dataset.label}: ${eur(ctx.parsed.y)} / mês`,
+          footer:items=>'Total: '+eur(items.reduce((s,i)=>s+i.parsed.y,0))+' / mês'}}},
+      scales:{x:{stacked:true,grid,ticks:tick},y:{stacked:true,grid,ticks:{...tick,callback:v=>v+' €'}}}}
   });
 
   const yrs=byYearF();
