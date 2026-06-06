@@ -1047,6 +1047,30 @@ const barTotalsPlugin = {
     ctx.restore();
   }
 };
+/* nível (código: TL, M, SM…) por baixo da data/ano, no espaço do eixo à esquerda */
+const AXIS_PAD = 6; // tem de bater certo com ticks.padding nas escalas
+const levelAxisPlugin = {
+  id:'levelAxis',
+  afterDatasetsDraw(chart){
+    const codes = chart.options.plugins.levelAxis && chart.options.plugins.levelAxis.codes;
+    if(!codes) return;
+    const meta0 = chart.getDatasetMeta(0);
+    if(!meta0 || !meta0.data || !meta0.data.length) return;
+    const ctx = chart.ctx;
+    const x = chart.chartArea.left - AXIS_PAD; // alinhado com a data, antes das barras
+    ctx.save();
+    ctx.font = '700 10px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+    ctx.fillStyle = '#c98bff'; // --acc
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for(let i=0;i<codes.length;i++){
+      const bar = meta0.data[i];
+      if(!bar || !codes[i]) continue;
+      ctx.fillText(codes[i], x, bar.y + 7); // 2ª linha (a 1ª, a data, é a tick nativa)
+    }
+    ctx.restore();
+  }
+};
 function evolHeight(n){ const per = chartView==='annual' ? 50 : 34; return Math.max(200, n*per + 64); }
 
 function renderCharts(){
@@ -1060,7 +1084,7 @@ function renderCharts(){
     const {max,step} = niceAxis(Math.max(0,...totals));
     return {
       x:{stacked:true,grid,min:0,max,ticks:{...tick,stepSize:step,callback:v=>(v/1000)+'k'}},
-      y:{stacked:true,grid:{display:false},ticks:tick}
+      y:{stacked:true,grid:{display:false},ticks:{...tick,padding:AXIS_PAD,callback(v){return [this.getLabelForValue(v),''];}}}
     };
   };
   const commonOpts = totals => ({
@@ -1073,6 +1097,7 @@ function renderCharts(){
   if(chartView==='monthly'){
     const rows = DATA.slice().reverse(); // mais recente no topo
     const labels = rows.map(r=>dlabel(r.date));
+    const levelCodes = rows.map(r=>levelByCode(r.level).code);
     const all = [
       {label:'Base',     data:rows.map(r=>r.baseMonthly),         backgroundColor:'#a100ff'},
       {label:'Lunch',    data:rows.map(r=>(r.fixed.lunch||0)/12), backgroundColor:'#ffb020'},
@@ -1083,10 +1108,11 @@ function renderCharts(){
     const totals = labels.map((_,i)=>datasets.reduce((s,d)=>s+(+d.data[i]||0),0));
     document.getElementById('evol-box').style.height = evolHeight(labels.length)+'px';
     const opts = commonOpts(totals);
+    opts.plugins.levelAxis = {codes:levelCodes};
     opts.plugins.tooltip = {filter:item=>item.parsed.x!==0,callbacks:{
       label:ctx=>` ${ctx.dataset.label}: ${eur(ctx.parsed.x)} / mês`,
       footer:items=>'Total: '+eur(items.reduce((s,i)=>s+i.parsed.x,0))+' / mês'}};
-    charts.evol = new Chart(box,{type:'bar',data:{labels,datasets},options:opts,plugins:[barTotalsPlugin]});
+    charts.evol = new Chart(box,{type:'bar',data:{labels,datasets},options:opts,plugins:[barTotalsPlugin,levelAxisPlugin]});
     renderEvolLegend(all);
     return;
   }
@@ -1116,6 +1142,7 @@ function renderCharts(){
   const totals = yrs.map((y,i)=>datasets.reduce((s,d)=>s+(+d.data[i]||0),0));
   document.getElementById('evol-box').style.height = evolHeight(yrs.length)+'px';
   const opts = commonOpts(totals);
+  opts.plugins.levelAxis = {codes:yrs.map(y=>levelByCode(y.last.level).code)};
   opts.plugins.tooltip = {filter:item=>item.parsed.x!==0,callbacks:{
     label:ctx=>{const y=yrs[ctx.dataIndex],k=ctx.dataset.kind;
       if(k==='base')  return ' Base: '+eur(y.annualBase)+'  ('+eur(y.baseMonthly)+'/mês)';
@@ -1125,7 +1152,7 @@ function renderCharts(){
     afterLabel:ctx=> ctx.dataset.kind==='allow' ? allowBreakdown(ctx.dataIndex)
                    : ctx.dataset.kind==='benef' ? benefBreakdown(ctx.dataIndex) : '',
     footer:items=>'Total: '+eur(items.reduce((s,i)=>s+i.parsed.x,0))}};
-  charts.evol = new Chart(box,{type:'bar',data:{labels:yrs.map(y=>y.year),datasets},options:opts,plugins:[barTotalsPlugin]});
+  charts.evol = new Chart(box,{type:'bar',data:{labels:yrs.map(y=>y.year),datasets},options:opts,plugins:[barTotalsPlugin,levelAxisPlugin]});
   renderEvolLegend(all);
 }
 
