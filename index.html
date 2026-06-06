@@ -258,9 +258,9 @@ const MONTHS_PER_YEAR = 14; // 12 + férias + natal
 /* id = identificador legível do nível (mostrado nas chavetas do gráfico);
    no = ordem hierárquica (menor = mais sénior), usada só p/ ordenar. */
 const LEVELS = [
-  {code:'PR', name:'Programmer',         id:'Lv12', no:12},
-  {code:'SPR',name:'Senior Programmer',  id:'Lv11', no:11},
-  {code:'AP', name:'Analyst',            id:'Lv10', no:10},
+  {code:'PR', name:'Associate',          id:'Lv12', no:12},
+  {code:'SPR',name:'Analyst',            id:'Lv11', no:11},
+  {code:'AP', name:'Senior Analyst',     id:'Lv10', no:10},
   {code:'TL', name:'Team Lead',          id:'Lv9',  no:9},
   {code:'AM', name:'Associate Manager',  id:'Lv8',  no:8},
   {code:'M',  name:'Manager',            id:'Lv7',  no:7},
@@ -997,8 +997,8 @@ function byYearF(){
 let charts={};
 function destroyCharts(){ Object.values(charts).forEach(c=>c&&c.destroy()); charts={}; }
 let chartView = 'annual';            // 'annual' | 'monthly'
-const RIGHT_GUTTER = 74;             // espaço (px) reservado à direita p/ o total
-const LEVEL_GUTTER = 46;             // espaço (px) reservado à esquerda p/ as chavetas de nível
+const RIGHT_GUTTER = 64;             // espaço (px) reservado à direita p/ o total
+const LEVEL_GUTTER = 40;             // espaço (px) reservado à esquerda p/ as chavetas de nível
 let evolHidden = { annual:new Set(), monthly:new Set() }; // parcelas escondidas, por vista
 
 function setChartView(v){
@@ -1037,7 +1037,7 @@ const barTotalsPlugin = {
     if(!meta0 || !meta0.data || !meta0.data.length) return;
     const ctx = chart.ctx, n = chart.data.labels.length;
     ctx.save();
-    ctx.font = '700 11px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+    ctx.font = '700 10px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
     ctx.fillStyle = '#f2ecfb';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
@@ -1052,7 +1052,7 @@ const barTotalsPlugin = {
   }
 };
 /* chaveta de nível: agrupa visualmente as barras do mesmo career level,
-   tratando cada bloco como um sub-bloco rotulado com o ID + nome do nível. */
+   tratando cada bloco como um sub-bloco rotulado com o ID (LvXX) do nível. */
 const AXIS_PAD = 6; // tem de bater certo com ticks.padding nas escalas
 function drawBrace(ctx, x, y0, y1, w){
   // chaveta "{" : bico (ponta) à esquerda em x, extremos à direita em x+w
@@ -1088,42 +1088,31 @@ const levelAxisPlugin = {
     }
 
     const ctx = chart.ctx;
-    const bw = 7;                    // largura da chaveta
-    const tipX = LEVEL_GUTTER - 4 - bw;   // bico da chaveta (aponta p/ a esquerda)
-    const labelX = Math.max(11, tipX*0.42); // centro do rótulo girado
+    const bw = 6;                       // largura da chaveta
+    const tipX = LEVEL_GUTTER - 4 - bw; // bico da chaveta (aponta p/ a esquerda)
     ctx.save();
     ctx.font = '700 10px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
     runs.forEach(run=>{
-      const lv = levelByCode(run.code);
-      const top = Math.max(ca.top,    bars[run.a].y - half + 3);
-      const bot = Math.min(ca.bottom, bars[run.b].y + half - 3);
-      if(bot - top < 6) return;
-      const mid = (top+bot)/2, h = bot - top;
+      const top = Math.max(ca.top,    bars[run.a].y - half + 2);
+      const bot = Math.min(ca.bottom, bars[run.b].y + half - 2);
+      if(bot - top < 5) return;
+      const mid = (top+bot)/2;
 
       // chaveta
       ctx.strokeStyle = 'rgba(201,139,255,.55)';
       ctx.lineWidth = 1.5;
       drawBrace(ctx, tipX, top, bot, bw);
 
-      // rótulo girado (lê de baixo p/ cima); cai p/ só o ID se não couber o nome
-      const id = lv.id || run.code;
-      const full = (lv.name && lv.name!==run.code) ? id+' · '+lv.name : id;
-      let text = full;
-      if(ctx.measureText(full).width > h-6) text = ctx.measureText(id).width <= h-2 ? id : '';
-      if(text){
-        ctx.save();
-        ctx.translate(labelX, mid);
-        ctx.rotate(-Math.PI/2);
-        ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillStyle = '#c98bff'; // --acc
-        ctx.fillText(text, 0, 0);
-        ctx.restore();
-      }
+      // rótulo horizontal: só o ID (LvXX / MD), à esquerda da chaveta
+      const id = levelByCode(run.code).id || run.code;
+      ctx.fillStyle = '#c98bff'; // --acc
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      ctx.fillText(id, tipX - 4, mid);
     });
     ctx.restore();
   }
 };
-function evolHeight(n){ const per = chartView==='annual' ? 50 : 34; return Math.max(200, n*per + 64); }
+function evolHeight(n){ const per = chartView==='annual' ? 28 : 30; return Math.max(180, n*per + 60); }
 
 function renderCharts(){
   if(typeof Chart==='undefined' || !DATA.length){ return; }
