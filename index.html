@@ -138,6 +138,10 @@ nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width
 .filter-head.open .chev{transform:rotate(180deg)}
 .filter-body{padding:0 16px 14px}
 .filters{display:flex;flex-wrap:wrap;gap:7px;margin:0}
+/* controlo segmentado Mensal/Anual */
+.seg{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:5px;margin-bottom:12px}
+.seg-btn{flex:1;background:none;border:none;color:var(--mut);font-size:13.5px;font-weight:700;padding:10px;border-radius:10px;cursor:pointer;transition:.15s}
+.seg-btn.on{background:linear-gradient(135deg,var(--acc2),#2563eb);color:#fff;box-shadow:0 2px 10px rgba(59,130,246,.35)}
 .fchip{font-size:12px;font-weight:600;background:var(--pill);color:var(--mut);border:1px solid var(--line);padding:6px 11px;border-radius:999px;cursor:pointer;user-select:none;transition:.15s}
 .fchip.on{background:rgba(110,168,255,.16);color:var(--acc);border-color:rgba(110,168,255,.4)}
 .fchip .x{font-size:10px;margin-left:4px;opacity:.6}
@@ -182,11 +186,23 @@ details.tax .tbody{padding:0 16px 14px}
   <section id="view-resumo" class="active"></section>
   <!-- EVOLUÇÃO -->
   <section id="view-evol">
-    <h2 class="title">Remuneração mensal</h2>
-    <div class="card"><div class="chartbox"><canvas id="c-monthly"></canvas></div></div>
-    <h2 class="title">Total compensation por ano</h2>
-    <div class="card"><div class="chartbox"><canvas id="c-total"></canvas></div></div>
-    <small class="foot">Por ano usa-se a última revisão para base, allowances, benefícios fixos e Expenses Allowance, e a soma do ano para o variável. Toca nas barras para o detalhe.</small>
+    <div class="seg">
+      <button class="seg-btn" data-cv="monthly" onclick="setChartView('monthly')">Mensal</button>
+      <button class="seg-btn on" data-cv="annual" onclick="setChartView('annual')">Anual</button>
+    </div>
+    <div class="card" style="padding:0">
+      <div class="chartbox" id="evol-box"><canvas id="c-evol"></canvas></div>
+    </div>
+    <div class="card" style="padding:0">
+      <div class="filter-head" id="filter-head" onclick="toggleFiltersPanel()">
+        <span>Parcelas<span class="fcount" id="filter-count"></span></span>
+        <span class="chev">▾</span>
+      </div>
+      <div class="filter-body" id="filter-body" hidden>
+        <div class="filters" id="evol-filters"></div>
+      </div>
+    </div>
+    <small class="foot">Na vista <b>anual</b>, cada ano usa a última revisão para base, allowances, benefícios fixos e Expenses Allowance, e a soma do ano para o variável. O total de cada barra surge à direita e reflete só as parcelas ativas. Toca nas barras para o detalhe.</small>
   </section>
   <!-- REVISÕES -->
   <section id="view-revs"></section>
@@ -1003,33 +1019,77 @@ function byYearF(){
 let charts={};
 function destroyCharts(){ Object.values(charts).forEach(c=>c&&c.destroy()); charts={}; }
 const dyear = d => { const [y,m]=d.split('-'); return +y + (+m-1)/12; }; // ano decimal p/ escala temporal
+let chartView = 'annual'; // 'annual' | 'monthly'
+function setChartView(v){
+  if((v!=='annual'&&v!=='monthly') || v===chartView) return;
+  chartView = v;
+  document.querySelectorAll('.seg-btn').forEach(b=>b.classList.toggle('on', b.dataset.cv===v));
+  renderCharts();
+}
+/* total ao fundo de cada barra horizontal — desenhado numa coluna à direita,
+   somando apenas os datasets visíveis (respeita parcelas e legenda) */
+const barTotalsPlugin = {
+  id:'barTotals',
+  afterDatasetsDraw(chart){
+    const {ctx, chartArea} = chart;
+    const meta0 = chart.getDatasetMeta(0);
+    if(!meta0 || !meta0.data || !meta0.data.length) return;
+    const n = chart.data.labels.length;
+    ctx.save();
+    ctx.font = '700 11px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+    ctx.fillStyle = '#e8edff';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for(let i=0;i<n;i++){
+      let sum=0;
+      chart.data.datasets.forEach((ds,di)=>{ if(chart.isDatasetVisible(di)) sum += (+ds.data[i]||0); });
+      if(!sum) continue;
+      const bar = chart.getDatasetMeta(0).data[i];
+      if(!bar) continue;
+      ctx.fillText(eur(sum), chartArea.right - 2, bar.y);
+    }
+    ctx.restore();
+  }
+};
+function evolHeight(n){ const per = chartView==='annual' ? 50 : 34; return Math.max(200, n*per + 70); }
+
 function renderCharts(){
   if(typeof Chart==='undefined' || !DATA.length){ return; }
   destroyCharts();
+  const box = document.getElementById('c-evol'); if(!box) return;
   const grid={color:'rgba(148,163,200,.12)'}, tick={color:'#94a3c8',font:{size:10}};
-  const legend={labels:{color:'#cdd7f5',boxWidth:12,font:{size:11}}};
-
-  // 1) remuneração mensal — empilhado por revisão: base + allowances/12 (com toggle por dataset)
-  const mLabels = DATA.map(r=>dlabel(r.date));
-  charts.monthly = new Chart(document.getElementById('c-monthly'),{
-    type:'bar',
-    data:{labels:mLabels,
-      datasets:[
-        {label:'Base',     data:DATA.map(r=>r.baseMonthly),          backgroundColor:'#3b82f6'},
-        {label:'Lunch',    data:DATA.map(r=>(r.fixed.lunch||0)/12),  backgroundColor:'#f59e0b'},
-        {label:'Car',      data:DATA.map(r=>(r.fixed.car||0)/12),    backgroundColor:'#a78bfa'},
-        {label:'Expenses', data:DATA.map(r=>(r.plafond||0)/12),      backgroundColor:'#22d3ee'},
-      ]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend,tooltip:{
-        filter:item=>item.parsed.y!==0,
-        callbacks:{
-          label:ctx=>` ${ctx.dataset.label}: ${eur(ctx.parsed.y)} / mês`,
-          footer:items=>'Total: '+eur(items.reduce((s,i)=>s+i.parsed.y,0))+' / mês'}}},
-      scales:{x:{stacked:true,grid,ticks:tick},y:{stacked:true,grid,ticks:{...tick,callback:v=>v+' €'}}}}
+  const legend={position:'bottom',labels:{color:'#cdd7f5',boxWidth:12,font:{size:11}}};
+  const inc=(g,k)=>!excluded.has(exKey(g,k));
+  const baseScales = totals => ({
+    x:{stacked:true,grid,min:0,max:Math.max(1,...totals)*1.24,ticks:{...tick,callback:v=>(v/1000)+'k'}},
+    y:{stacked:true,grid:{display:false},ticks:tick}
   });
 
-  const yrs=byYearF();
+  if(chartView==='monthly'){
+    const labels = DATA.map(r=>dlabel(r.date));
+    const datasets = [
+      {label:'Base', data:DATA.map(r=>r.baseMonthly), backgroundColor:'#3b82f6'},
+      ...(inc('allow','lunch') ? [{label:'Lunch', data:DATA.map(r=>(r.fixed.lunch||0)/12), backgroundColor:'#f59e0b'}] : []),
+      ...(inc('allow','car')   ? [{label:'Car',   data:DATA.map(r=>(r.fixed.car||0)/12),   backgroundColor:'#a78bfa'}] : []),
+      {label:'Expenses', data:DATA.map(r=>(r.plafond||0)/12), backgroundColor:'#22d3ee'},
+    ];
+    const totals = labels.map((_,i)=>datasets.reduce((s,d)=>s+(+d.data[i]||0),0));
+    document.getElementById('evol-box').style.height = evolHeight(labels.length)+'px';
+    charts.evol = new Chart(box,{
+      type:'bar', data:{labels,datasets},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        layout:{padding:{right:6}},
+        plugins:{legend,tooltip:{filter:item=>item.parsed.x!==0,callbacks:{
+          label:ctx=>` ${ctx.dataset.label}: ${eur(ctx.parsed.x)} / mês`,
+          footer:items=>'Total: '+eur(items.reduce((s,i)=>s+i.parsed.x,0))+' / mês'}}},
+        scales:baseScales(totals)},
+      plugins:[barTotalsPlugin]
+    });
+    return;
+  }
+
+  // === ANUAL ===
+  const yrs = byYearF();
   const ALLOWANCE_SHORT = {lunch:'Lunch', car:'Car'};
   const allowBreakdown = i => {
     const out = ALLOWANCE_FIELDS.filter(([k])=>!excluded.has(exKey('allow',k)) && yrs[i].last.fixed[k])
@@ -1043,30 +1103,29 @@ function renderCharts(){
     if(!excluded.has(exKey('stock','plan')) && stockPlanBenefit(last)) out.push('   · '+STOCK_PLAN_LABEL+' (ganho): '+eur(stockPlanBenefit(last)));
     return out;
   };
-
-  // 3) total compensation por ano — empilhado, com tooltips detalhados
-  charts.total = new Chart(document.getElementById('c-total'),{
-    type:'bar',
-    data:{labels:yrs.map(y=>y.year),
-      datasets:[
-        {label:'Base',      kind:'base',  data:yrs.map(y=>y.annualBase), backgroundColor:'#3b82f6'},
-        {label:'Allowances',kind:'allow', data:yrs.map(y=>y.allowances + y.plafond), backgroundColor:'#8b5cf6'},
-        {label:'Benef. Fixos',kind:'benef', data:yrs.map(y=>y.benefits),   backgroundColor:'#22d3ee'},
-        {label:'Bonus',     kind:'var',   data:yrs.map(y=>y.variable),   backgroundColor:'#4ade80'},
-      ]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend,tooltip:{
-        filter:item=>item.parsed.y!==0,
-        callbacks:{
-          label:ctx=>{const y=yrs[ctx.dataIndex],k=ctx.dataset.kind;
-            if(k==='base')  return ' Base: '+eur(y.annualBase)+'  ('+eur(y.baseMonthly)+'/mês)';
-            if(k==='allow') return ' Allowances: '+eur(y.allowances + y.plafond);
-            if(k==='benef') return ' Benef. Fixos: '+eur(y.benefits);
-            return ' Bonus: '+eur(y.variable);},
-          afterLabel:ctx=> ctx.dataset.kind==='allow' ? allowBreakdown(ctx.dataIndex)
-                         : ctx.dataset.kind==='benef' ? benefBreakdown(ctx.dataIndex) : '',
-          footer:items=>'Total: '+eur(yrs[items[0].dataIndex].total)}}},
-      scales:{x:{stacked:true,grid,ticks:tick},y:{stacked:true,grid,ticks:{...tick,callback:v=>(v/1000)+'k'}}}}
+  const datasets = [
+    {label:'Base',        kind:'base',  data:yrs.map(y=>y.annualBase),            backgroundColor:'#3b82f6'},
+    {label:'Allowances',  kind:'allow', data:yrs.map(y=>y.allowances + y.plafond), backgroundColor:'#8b5cf6'},
+    {label:'Benef. Fixos',kind:'benef', data:yrs.map(y=>y.benefits),              backgroundColor:'#22d3ee'},
+    {label:'Bonus',       kind:'var',   data:yrs.map(y=>y.variable),              backgroundColor:'#4ade80'},
+  ];
+  const totals = yrs.map(y=>y.annualBase + y.allowances + y.plafond + y.benefits + y.variable);
+  document.getElementById('evol-box').style.height = evolHeight(yrs.length)+'px';
+  charts.evol = new Chart(box,{
+    type:'bar', data:{labels:yrs.map(y=>y.year),datasets},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      layout:{padding:{right:6}},
+      plugins:{legend,tooltip:{filter:item=>item.parsed.x!==0,callbacks:{
+        label:ctx=>{const y=yrs[ctx.dataIndex],k=ctx.dataset.kind;
+          if(k==='base')  return ' Base: '+eur(y.annualBase)+'  ('+eur(y.baseMonthly)+'/mês)';
+          if(k==='allow') return ' Allowances: '+eur(y.allowances + y.plafond);
+          if(k==='benef') return ' Benef. Fixos: '+eur(y.benefits);
+          return ' Bonus: '+eur(y.variable);},
+        afterLabel:ctx=> ctx.dataset.kind==='allow' ? allowBreakdown(ctx.dataIndex)
+                       : ctx.dataset.kind==='benef' ? benefBreakdown(ctx.dataIndex) : '',
+        footer:items=>'Total: '+eur(yrs[items[0].dataIndex].total)}}},
+      scales:baseScales(totals)},
+    plugins:[barTotalsPlugin]
   });
 }
 
