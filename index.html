@@ -255,17 +255,20 @@ details.tax .tbody{padding:0 16px 14px}
 const LS_KEY = 'salario_accenture_v1';
 const MONTHS_PER_YEAR = 14; // 12 + férias + natal
 
+/* id = identificador legível do nível (mostrado nas chavetas do gráfico);
+   no = ordem hierárquica (menor = mais sénior), usada só p/ ordenar. */
 const LEVELS = [
-  {code:'PR', name:'Programmer', no:12},
-  {code:'SPR',name:'Senior Programmer', no:11},
-  {code:'AP', name:'Analyst Programmer', no:10},
-  {code:'TL', name:'Team Lead', no:9},
-  {code:'AM', name:'Associate Manager', no:8},
-  {code:'M',  name:'Manager', no:7},
-  {code:'SM', name:'Senior Manager', no:6},
-  {code:'MD', name:'Managing Director', no:5},
+  {code:'PR', name:'Programmer',         id:'Lv12', no:12},
+  {code:'SPR',name:'Senior Programmer',  id:'Lv11', no:11},
+  {code:'AP', name:'Analyst',            id:'Lv10', no:10},
+  {code:'TL', name:'Team Lead',          id:'Lv9',  no:9},
+  {code:'AM', name:'Associate Manager',  id:'Lv8',  no:8},
+  {code:'M',  name:'Manager',            id:'Lv7',  no:7},
+  {code:'SM', name:'Senior Manager',     id:'Lv6',  no:6},
+  {code:'AD', name:'Associate Director', id:'Lv5',  no:5},
+  {code:'MD', name:'Managing Director',  id:'MD',   no:4},
 ];
-const levelByCode = c => LEVELS.find(l=>l.code===c) || {code:c,name:c,no:''};
+const levelByCode = c => LEVELS.find(l=>l.code===c) || {code:c,name:c,id:c,no:''};
 
 /* ALLOWANCES (antes "Fixos") */
 const ALLOWANCE_FIELDS = [
@@ -995,6 +998,7 @@ let charts={};
 function destroyCharts(){ Object.values(charts).forEach(c=>c&&c.destroy()); charts={}; }
 let chartView = 'annual';            // 'annual' | 'monthly'
 const RIGHT_GUTTER = 74;             // espaço (px) reservado à direita p/ o total
+const LEVEL_GUTTER = 46;             // espaço (px) reservado à esquerda p/ as chavetas de nível
 let evolHidden = { annual:new Set(), monthly:new Set() }; // parcelas escondidas, por vista
 
 function setChartView(v){
@@ -1047,27 +1051,75 @@ const barTotalsPlugin = {
     ctx.restore();
   }
 };
-/* nível (código: TL, M, SM…) por baixo da data/ano, no espaço do eixo à esquerda */
+/* chaveta de nível: agrupa visualmente as barras do mesmo career level,
+   tratando cada bloco como um sub-bloco rotulado com o ID + nome do nível. */
 const AXIS_PAD = 6; // tem de bater certo com ticks.padding nas escalas
+function drawBrace(ctx, x, y0, y1, w){
+  // chaveta "{" : bico (ponta) à esquerda em x, extremos à direita em x+w
+  const ym=(y0+y1)/2, r=Math.min(w, (y1-y0)/4), sx=x+w*0.5;
+  ctx.beginPath();
+  ctx.moveTo(x+w, y0);
+  ctx.quadraticCurveTo(sx, y0, sx, y0+r);
+  ctx.lineTo(sx, ym-r);
+  ctx.quadraticCurveTo(sx, ym, x, ym);
+  ctx.quadraticCurveTo(sx, ym, sx, ym+r);
+  ctx.lineTo(sx, y1-r);
+  ctx.quadraticCurveTo(sx, y1, x+w, y1);
+  ctx.stroke();
+}
 const levelAxisPlugin = {
   id:'levelAxis',
   afterDatasetsDraw(chart){
-    const codes = chart.options.plugins.levelAxis && chart.options.plugins.levelAxis.codes;
-    if(!codes) return;
+    const cfg = chart.options.plugins.levelAxis;
+    const codes = cfg && cfg.codes;
+    if(!codes || !codes.length) return;
     const meta0 = chart.getDatasetMeta(0);
     if(!meta0 || !meta0.data || !meta0.data.length) return;
+    const bars = meta0.data, n = Math.min(codes.length, bars.length);
+    if(!n) return;
+    const ca = chart.chartArea;
+    // passo entre linhas → meia-banda de cada linha (p/ a chaveta abranger a linha toda)
+    const half = (n>1 ? Math.abs(bars[1].y - bars[0].y) : (ca.bottom - ca.top)) / 2;
+
+    // blocos contíguos do mesmo nível (códigos vêm na ordem das barras, topo→fundo)
+    const runs=[]; let s=0;
+    for(let i=1;i<=n;i++){
+      if(i===n || codes[i]!==codes[s]){ runs.push({code:codes[s], a:s, b:i-1}); s=i; }
+    }
+
     const ctx = chart.ctx;
-    const x = chart.chartArea.left - AXIS_PAD; // alinhado com a data, antes das barras
+    const bw = 7;                    // largura da chaveta
+    const tipX = LEVEL_GUTTER - 4 - bw;   // bico da chaveta (aponta p/ a esquerda)
+    const labelX = Math.max(11, tipX*0.42); // centro do rótulo girado
     ctx.save();
     ctx.font = '700 10px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
-    ctx.fillStyle = '#c98bff'; // --acc
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    for(let i=0;i<codes.length;i++){
-      const bar = meta0.data[i];
-      if(!bar || !codes[i]) continue;
-      ctx.fillText(codes[i], x, bar.y + 7); // 2ª linha (a 1ª, a data, é a tick nativa)
-    }
+    runs.forEach(run=>{
+      const lv = levelByCode(run.code);
+      const top = Math.max(ca.top,    bars[run.a].y - half + 3);
+      const bot = Math.min(ca.bottom, bars[run.b].y + half - 3);
+      if(bot - top < 6) return;
+      const mid = (top+bot)/2, h = bot - top;
+
+      // chaveta
+      ctx.strokeStyle = 'rgba(201,139,255,.55)';
+      ctx.lineWidth = 1.5;
+      drawBrace(ctx, tipX, top, bot, bw);
+
+      // rótulo girado (lê de baixo p/ cima); cai p/ só o ID se não couber o nome
+      const id = lv.id || run.code;
+      const full = (lv.name && lv.name!==run.code) ? id+' · '+lv.name : id;
+      let text = full;
+      if(ctx.measureText(full).width > h-6) text = ctx.measureText(id).width <= h-2 ? id : '';
+      if(text){
+        ctx.save();
+        ctx.translate(labelX, mid);
+        ctx.rotate(-Math.PI/2);
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle = '#c98bff'; // --acc
+        ctx.fillText(text, 0, 0);
+        ctx.restore();
+      }
+    });
     ctx.restore();
   }
 };
@@ -1084,12 +1136,12 @@ function renderCharts(){
     const {max,step} = niceAxis(Math.max(0,...totals));
     return {
       x:{stacked:true,grid,min:0,max,ticks:{...tick,stepSize:step,callback:v=>(v/1000)+'k'}},
-      y:{stacked:true,grid:{display:false},ticks:{...tick,padding:AXIS_PAD,callback(v){return [this.getLabelForValue(v),''];}}}
+      y:{stacked:true,grid:{display:false},ticks:{...tick,padding:AXIS_PAD,callback(v){return this.getLabelForValue(v);}}}
     };
   };
   const commonOpts = totals => ({
     indexAxis:'y',responsive:true,maintainAspectRatio:false,
-    layout:{padding:{right:RIGHT_GUTTER}},
+    layout:{padding:{left:LEVEL_GUTTER, right:RIGHT_GUTTER}},
     plugins:{legend:{display:false}},
     scales:makeScales(totals)
   });
