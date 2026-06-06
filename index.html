@@ -12,6 +12,7 @@
   --txt:#e8edff; --mut:#94a3c8; --line:#26335c;
   --acc:#6ea8ff; --acc2:#3b82f6; --good:#4ade80; --bad:#fb7185; --warn:#fbbf24;
   --pill:#22304f;
+  --hdrH:64px;
   --edge-l:#6ea8ff; --edge-r:#22d3ee; /* rebordo do card aberto: esquerda / direita */
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -142,6 +143,14 @@ nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width
 .seg{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:5px;margin-bottom:12px}
 .seg-btn{flex:1;background:none;border:none;color:var(--mut);font-size:13.5px;font-weight:700;padding:10px;border-radius:10px;cursor:pointer;transition:.15s}
 .seg-btn.on{background:linear-gradient(135deg,var(--acc2),#2563eb);color:#fff;box-shadow:0 2px 10px rgba(59,130,246,.35)}
+/* barra fixa: toggle + legenda, presa por baixo do header */
+.evol-sticky{position:sticky;top:var(--hdrH);z-index:25;background:#0b1020;padding:12px 0 10px;margin-bottom:4px;box-shadow:0 10px 14px -10px rgba(0,0,0,.65)}
+.evol-sticky .seg{margin-bottom:8px}
+.elegend{display:flex;flex-wrap:wrap;gap:7px}
+.eleg{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;background:var(--pill);border:1px solid var(--line);color:var(--txt);padding:5px 10px;border-radius:999px;cursor:pointer;user-select:none;transition:.15s}
+.eleg .dot{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
+.eleg.off{opacity:.4}
+.eleg.off .lbl{text-decoration:line-through}
 .fchip{font-size:12px;font-weight:600;background:var(--pill);color:var(--mut);border:1px solid var(--line);padding:6px 11px;border-radius:999px;cursor:pointer;user-select:none;transition:.15s}
 .fchip.on{background:rgba(110,168,255,.16);color:var(--acc);border-color:rgba(110,168,255,.4)}
 .fchip .x{font-size:10px;margin-left:4px;opacity:.6}
@@ -186,23 +195,17 @@ details.tax .tbody{padding:0 16px 14px}
   <section id="view-resumo" class="active"></section>
   <!-- EVOLUÇÃO -->
   <section id="view-evol">
-    <div class="seg">
-      <button class="seg-btn" data-cv="monthly" onclick="setChartView('monthly')">Mensal</button>
-      <button class="seg-btn on" data-cv="annual" onclick="setChartView('annual')">Anual</button>
+    <div class="evol-sticky">
+      <div class="seg">
+        <button class="seg-btn" data-cv="monthly" onclick="setChartView('monthly')">Mensal</button>
+        <button class="seg-btn on" data-cv="annual" onclick="setChartView('annual')">Anual</button>
+      </div>
+      <div class="elegend" id="evol-legend"></div>
     </div>
     <div class="card" style="padding:0">
       <div class="chartbox" id="evol-box"><canvas id="c-evol"></canvas></div>
     </div>
-    <div class="card" style="padding:0">
-      <div class="filter-head" id="filter-head" onclick="toggleFiltersPanel()">
-        <span>Parcelas<span class="fcount" id="filter-count"></span></span>
-        <span class="chev">▾</span>
-      </div>
-      <div class="filter-body" id="filter-body" hidden>
-        <div class="filters" id="evol-filters"></div>
-      </div>
-    </div>
-    <small class="foot">Na vista <b>anual</b>, cada ano usa a última revisão para base, allowances, benefícios fixos e Expenses Allowance, e a soma do ano para o variável. O total de cada barra surge à direita e reflete só as parcelas ativas. Toca nas barras para o detalhe.</small>
+    <small class="foot">Na vista <b>anual</b>, cada ano usa a última revisão para base, allowances, benefícios fixos e Expenses Allowance, e a soma do ano para o variável. O total de cada barra surge à direita e reflete só as parcelas ativas. Toca numa parcela acima para a esconder/mostrar, ou nas barras para o detalhe.</small>
   </section>
   <!-- REVISÕES -->
   <section id="view-revs"></section>
@@ -426,7 +429,7 @@ function nav(v){
   document.getElementById('hdr-title').textContent = HDR[v][0];
   document.getElementById('hdr-sub').textContent = HDR[v][1];
   window.scrollTo(0,0);
-  if(v==='evol'){ renderFilters(); renderCharts(); }
+  if(v==='evol'){ renderCharts(); }
   if(v==='form' && editIndex===null) resetForm();
 }
 
@@ -957,40 +960,12 @@ function delRev(i){
   DATA.splice(i,1); save(); toast('Revisão eliminada'); renderAll();
 }
 
-/* =================== FILTROS (gráficos) =================== */
-const EXCLUDABLE = [
-  ...ALLOWANCE_FIELDS.map(([k,l])=>['allow',k,l]),
-  ...BENEFIT_FIELDS.map(([k,l])=>['benef',k,l]),
-  ['stock','plan',STOCK_PLAN_LABEL],
-  ...VAR_FIELDS.map(([k,l])=>['var',k,l]),
-];
-let excluded = new Set(); // chaves "allow:car", "benef:comms", "stock:plan", "var:oneShot", ...
+/* =================== PARCELAS =================== */
+/* Filtragem fina por sub-componente foi descontinuada; mantém-se vazio para os
+   agregados *F continuarem a devolver os valores completos. A seleção de
+   parcelas passou a ser feita ao nível do dataset, na legenda fixa do gráfico. */
+const excluded = new Set();
 const exKey = (g,k)=> g+':'+k;
-function toggleFilter(g,k){
-  const key=exKey(g,k);
-  if(excluded.has(key)) excluded.delete(key); else excluded.add(key);
-  renderFilters(); renderCharts();
-}
-function clearFilters(){ excluded.clear(); renderFilters(); renderCharts(); }
-function toggleFiltersPanel(){
-  const head=document.getElementById('filter-head');
-  const body=document.getElementById('filter-body');
-  if(!head||!body) return;
-  const open=body.hidden;
-  body.hidden=!open;
-  head.classList.toggle('open',open);
-}
-function renderFilters(){
-  const cnt=document.getElementById('filter-count');
-  if(cnt) cnt.textContent = excluded.size? ` · ${excluded.size} excluído${excluded.size>1?'s':''}` : '';
-  const el=document.getElementById('evol-filters');
-  if(!el) return;
-  el.innerHTML = EXCLUDABLE.map(([g,k,lbl])=>{
-    const on = !excluded.has(exKey(g,k)); // "on" = incluído
-    return `<span class="fchip ${on?'on':''}" onclick="toggleFilter('${g}','${k}')">${lbl}${on?'':' <span class="x">excluído</span>'}</span>`;
-  }).join('') +
-  (excluded.size?`<span class="fchip" style="color:var(--bad);border-color:rgba(251,113,133,.4)" onclick="clearFilters()">↺ limpar (${excluded.size})</span>`:'');
-}
 // totais respeitando filtros
 const allowanceTotalF = r => ALLOWANCE_FIELDS.reduce((s,[k])=> excluded.has(exKey('allow',k))?s:s+(r.fixed[k]||0), 0);
 const benefManualF    = r => BENEFIT_FIELDS.reduce((s,[k])=> excluded.has(exKey('benef',k))?s:s+(r.fixed[k]||0), 0);
@@ -1018,23 +993,45 @@ function byYearF(){
 /* =================== CHARTS =================== */
 let charts={};
 function destroyCharts(){ Object.values(charts).forEach(c=>c&&c.destroy()); charts={}; }
-const dyear = d => { const [y,m]=d.split('-'); return +y + (+m-1)/12; }; // ano decimal p/ escala temporal
-let chartView = 'annual'; // 'annual' | 'monthly'
+let chartView = 'annual';            // 'annual' | 'monthly'
+const RIGHT_GUTTER = 74;             // espaço (px) reservado à direita p/ o total
+let evolHidden = { annual:new Set(), monthly:new Set() }; // parcelas escondidas, por vista
+
 function setChartView(v){
   if((v!=='annual'&&v!=='monthly') || v===chartView) return;
   chartView = v;
   document.querySelectorAll('.seg-btn').forEach(b=>b.classList.toggle('on', b.dataset.cv===v));
   renderCharts();
 }
-/* total ao fundo de cada barra horizontal — desenhado numa coluna à direita,
-   somando apenas os datasets visíveis (respeita parcelas e legenda) */
+function toggleParcel(label){
+  const set = evolHidden[chartView];
+  if(set.has(label)) set.delete(label); else set.add(label);
+  renderCharts();
+}
+function renderEvolLegend(all){
+  const el = document.getElementById('evol-legend'); if(!el) return;
+  const hid = evolHidden[chartView];
+  el.innerHTML = all.map(d=>{
+    const off = hid.has(d.label);
+    const safe = d.label.replace(/'/g,"\\'");
+    return `<span class="eleg ${off?'off':''}" onclick="toggleParcel('${safe}')"><span class="dot" style="background:${d.backgroundColor}"></span><span class="lbl">${d.label}</span></span>`;
+  }).join('');
+}
+/* escala do eixo de valores com topo redondo (sem casas decimais nos ticks) */
+function niceAxis(maxTotal){
+  if(maxTotal<=0) return {max:1, step:1};
+  let step = Math.pow(10, Math.floor(Math.log10(maxTotal)));
+  let max  = Math.ceil(maxTotal/step)*step;
+  while(max/step > 6){ step *= 2; max = Math.ceil(maxTotal/step)*step; }
+  return {max, step};
+}
+/* total ao fundo de cada barra — coluna à direita, soma só das parcelas mostradas */
 const barTotalsPlugin = {
   id:'barTotals',
   afterDatasetsDraw(chart){
-    const {ctx, chartArea} = chart;
     const meta0 = chart.getDatasetMeta(0);
     if(!meta0 || !meta0.data || !meta0.data.length) return;
-    const n = chart.data.labels.length;
+    const ctx = chart.ctx, n = chart.data.labels.length;
     ctx.save();
     ctx.font = '700 11px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
     ctx.fillStyle = '#e8edff';
@@ -1044,47 +1041,52 @@ const barTotalsPlugin = {
       let sum=0;
       chart.data.datasets.forEach((ds,di)=>{ if(chart.isDatasetVisible(di)) sum += (+ds.data[i]||0); });
       if(!sum) continue;
-      const bar = chart.getDatasetMeta(0).data[i];
-      if(!bar) continue;
-      ctx.fillText(eur(sum), chartArea.right - 2, bar.y);
+      const bar = meta0.data[i]; if(!bar) continue;
+      ctx.fillText(eur(sum), chart.width - 6, bar.y);
     }
     ctx.restore();
   }
 };
-function evolHeight(n){ const per = chartView==='annual' ? 50 : 34; return Math.max(200, n*per + 70); }
+function evolHeight(n){ const per = chartView==='annual' ? 50 : 34; return Math.max(200, n*per + 64); }
 
 function renderCharts(){
   if(typeof Chart==='undefined' || !DATA.length){ return; }
   destroyCharts();
   const box = document.getElementById('c-evol'); if(!box) return;
   const grid={color:'rgba(148,163,200,.12)'}, tick={color:'#94a3c8',font:{size:10}};
-  const legend={position:'bottom',labels:{color:'#cdd7f5',boxWidth:12,font:{size:11}}};
-  const inc=(g,k)=>!excluded.has(exKey(g,k));
-  const baseScales = totals => ({
-    x:{stacked:true,grid,min:0,max:Math.max(1,...totals)*1.24,ticks:{...tick,callback:v=>(v/1000)+'k'}},
-    y:{stacked:true,grid:{display:false},ticks:tick}
+  const hid = evolHidden[chartView];
+
+  const makeScales = totals => {
+    const {max,step} = niceAxis(Math.max(0,...totals));
+    return {
+      x:{stacked:true,grid,min:0,max,ticks:{...tick,stepSize:step,callback:v=>(v/1000)+'k'}},
+      y:{stacked:true,grid:{display:false},ticks:tick}
+    };
+  };
+  const commonOpts = totals => ({
+    indexAxis:'y',responsive:true,maintainAspectRatio:false,
+    layout:{padding:{right:RIGHT_GUTTER}},
+    plugins:{legend:{display:false}},
+    scales:makeScales(totals)
   });
 
   if(chartView==='monthly'){
     const labels = DATA.map(r=>dlabel(r.date));
-    const datasets = [
-      {label:'Base', data:DATA.map(r=>r.baseMonthly), backgroundColor:'#3b82f6'},
-      ...(inc('allow','lunch') ? [{label:'Lunch', data:DATA.map(r=>(r.fixed.lunch||0)/12), backgroundColor:'#f59e0b'}] : []),
-      ...(inc('allow','car')   ? [{label:'Car',   data:DATA.map(r=>(r.fixed.car||0)/12),   backgroundColor:'#a78bfa'}] : []),
-      {label:'Expenses', data:DATA.map(r=>(r.plafond||0)/12), backgroundColor:'#22d3ee'},
+    const all = [
+      {label:'Base',     data:DATA.map(r=>r.baseMonthly),         backgroundColor:'#3b82f6'},
+      {label:'Lunch',    data:DATA.map(r=>(r.fixed.lunch||0)/12), backgroundColor:'#f59e0b'},
+      {label:'Car',      data:DATA.map(r=>(r.fixed.car||0)/12),   backgroundColor:'#a78bfa'},
+      {label:'Expenses', data:DATA.map(r=>(r.plafond||0)/12),     backgroundColor:'#22d3ee'},
     ];
+    const datasets = all.filter(d=>!hid.has(d.label));
     const totals = labels.map((_,i)=>datasets.reduce((s,d)=>s+(+d.data[i]||0),0));
     document.getElementById('evol-box').style.height = evolHeight(labels.length)+'px';
-    charts.evol = new Chart(box,{
-      type:'bar', data:{labels,datasets},
-      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-        layout:{padding:{right:6}},
-        plugins:{legend,tooltip:{filter:item=>item.parsed.x!==0,callbacks:{
-          label:ctx=>` ${ctx.dataset.label}: ${eur(ctx.parsed.x)} / mês`,
-          footer:items=>'Total: '+eur(items.reduce((s,i)=>s+i.parsed.x,0))+' / mês'}}},
-        scales:baseScales(totals)},
-      plugins:[barTotalsPlugin]
-    });
+    const opts = commonOpts(totals);
+    opts.plugins.tooltip = {filter:item=>item.parsed.x!==0,callbacks:{
+      label:ctx=>` ${ctx.dataset.label}: ${eur(ctx.parsed.x)} / mês`,
+      footer:items=>'Total: '+eur(items.reduce((s,i)=>s+i.parsed.x,0))+' / mês'}};
+    charts.evol = new Chart(box,{type:'bar',data:{labels,datasets},options:opts,plugins:[barTotalsPlugin]});
+    renderEvolLegend(all);
     return;
   }
 
@@ -1103,30 +1105,27 @@ function renderCharts(){
     if(!excluded.has(exKey('stock','plan')) && stockPlanBenefit(last)) out.push('   · '+STOCK_PLAN_LABEL+' (ganho): '+eur(stockPlanBenefit(last)));
     return out;
   };
-  const datasets = [
-    {label:'Base',        kind:'base',  data:yrs.map(y=>y.annualBase),            backgroundColor:'#3b82f6'},
+  const all = [
+    {label:'Base',        kind:'base',  data:yrs.map(y=>y.annualBase),             backgroundColor:'#3b82f6'},
     {label:'Allowances',  kind:'allow', data:yrs.map(y=>y.allowances + y.plafond), backgroundColor:'#8b5cf6'},
-    {label:'Benef. Fixos',kind:'benef', data:yrs.map(y=>y.benefits),              backgroundColor:'#22d3ee'},
-    {label:'Bonus',       kind:'var',   data:yrs.map(y=>y.variable),              backgroundColor:'#4ade80'},
+    {label:'Benef. Fixos',kind:'benef', data:yrs.map(y=>y.benefits),               backgroundColor:'#22d3ee'},
+    {label:'Bonus',       kind:'var',   data:yrs.map(y=>y.variable),               backgroundColor:'#4ade80'},
   ];
-  const totals = yrs.map(y=>y.annualBase + y.allowances + y.plafond + y.benefits + y.variable);
+  const datasets = all.filter(d=>!hid.has(d.label));
+  const totals = yrs.map((y,i)=>datasets.reduce((s,d)=>s+(+d.data[i]||0),0));
   document.getElementById('evol-box').style.height = evolHeight(yrs.length)+'px';
-  charts.evol = new Chart(box,{
-    type:'bar', data:{labels:yrs.map(y=>y.year),datasets},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      layout:{padding:{right:6}},
-      plugins:{legend,tooltip:{filter:item=>item.parsed.x!==0,callbacks:{
-        label:ctx=>{const y=yrs[ctx.dataIndex],k=ctx.dataset.kind;
-          if(k==='base')  return ' Base: '+eur(y.annualBase)+'  ('+eur(y.baseMonthly)+'/mês)';
-          if(k==='allow') return ' Allowances: '+eur(y.allowances + y.plafond);
-          if(k==='benef') return ' Benef. Fixos: '+eur(y.benefits);
-          return ' Bonus: '+eur(y.variable);},
-        afterLabel:ctx=> ctx.dataset.kind==='allow' ? allowBreakdown(ctx.dataIndex)
-                       : ctx.dataset.kind==='benef' ? benefBreakdown(ctx.dataIndex) : '',
-        footer:items=>'Total: '+eur(yrs[items[0].dataIndex].total)}}},
-      scales:baseScales(totals)},
-    plugins:[barTotalsPlugin]
-  });
+  const opts = commonOpts(totals);
+  opts.plugins.tooltip = {filter:item=>item.parsed.x!==0,callbacks:{
+    label:ctx=>{const y=yrs[ctx.dataIndex],k=ctx.dataset.kind;
+      if(k==='base')  return ' Base: '+eur(y.annualBase)+'  ('+eur(y.baseMonthly)+'/mês)';
+      if(k==='allow') return ' Allowances: '+eur(y.allowances + y.plafond);
+      if(k==='benef') return ' Benef. Fixos: '+eur(y.benefits);
+      return ' Bonus: '+eur(y.variable);},
+    afterLabel:ctx=> ctx.dataset.kind==='allow' ? allowBreakdown(ctx.dataIndex)
+                   : ctx.dataset.kind==='benef' ? benefBreakdown(ctx.dataIndex) : '',
+    footer:items=>'Total: '+eur(items.reduce((s,i)=>s+i.parsed.x,0))}};
+  charts.evol = new Chart(box,{type:'bar',data:{labels:yrs.map(y=>y.year),datasets},options:opts,plugins:[barTotalsPlugin]});
+  renderEvolLegend(all);
 }
 
 /* =================== BACKUP =================== */
@@ -1164,9 +1163,12 @@ function toast(msg){
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),1900);
 }
-function renderAll(){ resumoIdx=null; renderResumo(); renderRevs(); renderFilters(); if(current==='evol') renderCharts(); }
+function renderAll(){ resumoIdx=null; renderResumo(); renderRevs(); if(current==='evol') renderCharts(); }
 
 /* =================== INIT =================== */
+function setHdrH(){ const h=document.querySelector('header'); if(h) document.documentElement.style.setProperty('--hdrH', h.offsetHeight+'px'); }
+setHdrH();
+window.addEventListener('resize', setHdrH);
 load();
 buildForm();
 renderAll();
