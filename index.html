@@ -1071,12 +1071,13 @@ function renderCharts(){
   });
 
   if(chartView==='monthly'){
-    const labels = DATA.map(r=>dlabel(r.date));
+    const rows = DATA.slice().reverse(); // mais recente no topo
+    const labels = rows.map(r=>dlabel(r.date));
     const all = [
-      {label:'Base',     data:DATA.map(r=>r.baseMonthly),         backgroundColor:'#3b82f6'},
-      {label:'Lunch',    data:DATA.map(r=>(r.fixed.lunch||0)/12), backgroundColor:'#f59e0b'},
-      {label:'Car',      data:DATA.map(r=>(r.fixed.car||0)/12),   backgroundColor:'#a78bfa'},
-      {label:'Expenses', data:DATA.map(r=>(r.plafond||0)/12),     backgroundColor:'#22d3ee'},
+      {label:'Base',     data:rows.map(r=>r.baseMonthly),         backgroundColor:'#3b82f6'},
+      {label:'Lunch',    data:rows.map(r=>(r.fixed.lunch||0)/12), backgroundColor:'#f59e0b'},
+      {label:'Car',      data:rows.map(r=>(r.fixed.car||0)/12),   backgroundColor:'#a78bfa'},
+      {label:'Expenses', data:rows.map(r=>(r.plafond||0)/12),     backgroundColor:'#22d3ee'},
     ];
     const datasets = all.filter(d=>!hid.has(d.label));
     const totals = labels.map((_,i)=>datasets.reduce((s,d)=>s+(+d.data[i]||0),0));
@@ -1091,7 +1092,7 @@ function renderCharts(){
   }
 
   // === ANUAL ===
-  const yrs = byYearF();
+  const yrs = byYearF().reverse(); // mais recente no topo
   const ALLOWANCE_SHORT = {lunch:'Lunch', car:'Car'};
   const allowBreakdown = i => {
     const out = ALLOWANCE_FIELDS.filter(([k])=>!excluded.has(exKey('allow',k)) && yrs[i].last.fixed[k])
