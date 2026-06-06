@@ -678,13 +678,18 @@ function buildForm(){
       </details>
 
       <details class="card calc grp" id="det-allow" style="margin:12px 0 0">
-        <summary>Allowances e Benefícios Fixos <span class="chev">▾</span></summary>
+        <summary>Allowances <span class="chev">▾</span></summary>
         <div class="cbody">
-          <p class="hint" style="margin-top:0">Raramente mudam — ajusta só se for caso disso.</p>
-          <div class="sectitle" style="margin-top:6px">Allowances — anual</div>
+          <p class="hint" style="margin-top:0">Anual. Raramente mudam — ajusta só se for caso disso.</p>
           ${ALLOWANCE_FIELDS.map(([k,lbl])=>`<div class="field"><label>${lbl}</label><input type="number" inputmode="decimal" id="fx-${k}" placeholder="€"></div>`).join('')}
-          <div class="field"><label>Expenses Allowance (anual)</label><input type="number" inputmode="decimal" id="f-plafond" placeholder="€"></div>
-          <div class="sectitle">Benefícios Fixos — anual</div>
+          <div class="field" style="margin-bottom:0"><label>Expenses Allowance</label><input type="number" inputmode="decimal" id="f-plafond" placeholder="€"></div>
+        </div>
+      </details>
+
+      <details class="card calc grp" id="det-benef" style="margin:12px 0 0">
+        <summary>Benefícios Fixos <span class="chev">▾</span></summary>
+        <div class="cbody">
+          <p class="hint" style="margin-top:0">Anual. Raramente mudam — ajusta só se for caso disso.</p>
           ${BENEFIT_FIELDS.map(([k,lbl])=>`<div class="field"><label>${lbl}</label><input type="number" inputmode="decimal" id="fx-${k}" placeholder="€"></div>`).join('')}
           <div class="field"><label>${STOCK_PLAN_LABEL} — % alocada (PAAT)</label><input type="number" inputmode="decimal" id="f-stockpct" placeholder="${STOCK_PLAN_DEFAULT_PCT}" value="${STOCK_PLAN_DEFAULT_PCT}"></div>
           <p class="hint" style="margin-top:-6px">10% do que recebes em conta: ordenado + prémios + viatura + Expenses Allowance − benefícios convertidos. Ações a −15%. O valor é calculado.</p>
