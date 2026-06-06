@@ -104,18 +104,19 @@ No resumo anual, base/allowances/benefícios fixos/Expenses usam a **última rev
 
 ## 5. Onde mexer — receitas rápidas
 
-|Quero…                                               |Mexer em                                              |
-|-----------------------------------------------------|------------------------------------------------------|
-|Mudar a % do plano para uma revisão                  |campo `stockPlanPct` dessa revisão (form: “% alocada”)|
-|Mudar a % por defeito de novas revisões              |`STOCK_PLAN_DEFAULT_PCT`                              |
-|Mudar o desconto das ações                           |`STOCK_DISCOUNT` (0.15)                               |
-|Tirar/pôr o Car ou o Expenses na base do plano       |função `stockPlanBase`                                |
-|Acrescentar um tipo de prémio                        |array `VAR_FIELDS`                                    |
-|Acrescentar um tipo de Benefício Flex                |array `FLEX_TYPES`                                    |
-|Acrescentar um tipo de conversão de despesas         |array `EXPENSE_TYPES`                                 |
-|Acrescentar/renomear um nível                        |array `LEVELS`                                        |
-|Mudar nº de meses do salário                         |`MONTHS_PER_YEAR`                                     |
-|Alterar o que entra em Allowances vs Benefícios Fixos|`ALLOWANCE_FIELDS` / `BENEFIT_FIELDS`                 |
+|Quero…                                               |Mexer em                                                                                            |
+|-----------------------------------------------------|----------------------------------------------------------------------------------------------------|
+|Mudar a % do plano para uma revisão                  |campo `stockPlanPct` dessa revisão (form: “% alocada”)                                              |
+|Mudar a % por defeito de novas revisões              |`STOCK_PLAN_DEFAULT_PCT`                                                                            |
+|Mudar o desconto das ações                           |`STOCK_DISCOUNT` (0.15)                                                                             |
+|Tirar/pôr o Car ou o Expenses na base do plano       |função `stockPlanBase`                                                                              |
+|Acrescentar um tipo de prémio                        |array `VAR_FIELDS`                                                                                  |
+|Acrescentar um tipo de Benefício Flex                |array `FLEX_TYPES`                                                                                  |
+|Acrescentar um tipo de conversão de despesas         |array `EXPENSE_TYPES`                                                                               |
+|Acrescentar/renomear um nível                        |array `LEVELS`                                                                                      |
+|Mudar nº de meses do salário                         |`MONTHS_PER_YEAR`                                                                                   |
+|Alterar o que entra em Allowances vs Benefícios Fixos|`ALLOWANCE_FIELDS` / `BENEFIT_FIELDS`                                                               |
+|Afinar o nível nos gráficos (cor/tamanho/posição)    |`levelAxisPlugin` (cor `--acc`, `10px`, offset `bar.y+7`); `AXIS_PAD` mantém eixo e plugin alinhados|
 
 Os labels visíveis estão nos próprios arrays (ex.: `['car','Car Allowance']`), por isso renomear é trocar a segunda posição.
 
@@ -146,6 +147,7 @@ As variantes com sufixo `F` (`allowanceTotalF`, `varTotalF`, `byYearF`…) são 
 ## 7. Vistas e persistência
 
 - **Vistas:** Resumo · Evolução (gráficos + filtros) · Revisões · Nova · Backup.
+- **Nível nos gráficos:** na Evolução, o código do nível (`LEVELS`) aparece por baixo da data/ano no eixo da esquerda. A vista **mensal** usa o nível de cada revisão; a **anual** usa o da última revisão do ano (mesma regra do resto do agregado anual). Desenhado pelo `levelAxisPlugin`, irmão do `barTotalsPlugin` (que põe o total à direita).
 - **Dados:** vivem só no dispositivo (`localStorage`, chave `salario_accenture_v1`). O HTML não contém dados.
 - **Backup:** exportar/importar JSON na vista Backup. Convém exportar com regularidade.
 - **`normalize()`** corre ao carregar e ao guardar — é o sítio certo para futuras migrações de formato.
