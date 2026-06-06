@@ -156,6 +156,11 @@ details.calc>summary::-webkit-details-marker{display:none}
 details.calc>summary .chev{transition:transform .2s;color:var(--mut)}
 details.calc[open]>summary .chev{transform:rotate(180deg)}
 details.calc .cbody{padding:0 16px 14px}
+/* grupos colapsáveis do formulário — tom ligeiramente distinto p/ se diferenciarem dos cards normais */
+details.calc.grp{background:linear-gradient(160deg,#1a2547,#20315f);border:1px solid #37497f}
+details.calc.grp>summary{color:#c4d2f4;font-weight:700}
+details.calc.grp>summary .chev{color:#9fb2e0}
+details.calc.grp[open]{border-color:#45589a}
 details.tax{padding:0;background:linear-gradient(160deg,#1a1d44,#221b48);border:1px solid #36306c}
 details.tax>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;padding:14px 16px}
 details.tax>summary::-webkit-details-marker{display:none}
@@ -663,28 +668,32 @@ function buildForm(){
       <div class="computed" id="f-monthly" style="margin-top:-4px"></div>
       <div class="field"><label>Banding / Outcome (opcional)</label><input type="text" id="f-band" placeholder="ex: Talent Priority"></div>
 
-      <div class="sectitle">Prémios desta revisão</div>
-      <p class="hint">Adiciona só os prémios que se aplicam. Vários prémios no mesmo ano são somados no resumo anual.</p>
-      <div id="var-list"></div>
-      <button class="btn ghost sm" type="button" onclick="addVarRow()" style="margin-bottom:6px">+ Adicionar prémio</button>
-
-      <details class="card calc" style="margin:14px 0 0">
-        <summary>Allowances e Benefícios Fixos — herdados da revisão anterior <span class="chev">▾</span></summary>
+      <details class="card calc grp" id="det-var" style="margin:14px 0 0">
+        <summary>Prémios desta revisão <span class="chev">▾</span></summary>
         <div class="cbody">
-          <p class="hint" style="margin-top:0">Pré-preenchidos com a última revisão (raramente mudam). Ajusta só se for caso disso.</p>
+          <p class="hint" style="margin-top:0">Adiciona só os prémios que se aplicam. Vários prémios no mesmo ano são somados no resumo anual.</p>
+          <div id="var-list"></div>
+          <button class="btn ghost sm" type="button" onclick="addVarRow()" style="margin-bottom:0">+ Adicionar prémio</button>
+        </div>
+      </details>
+
+      <details class="card calc grp" id="det-allow" style="margin:12px 0 0">
+        <summary>Allowances e Benefícios Fixos <span class="chev">▾</span></summary>
+        <div class="cbody">
+          <p class="hint" style="margin-top:0">Raramente mudam — ajusta só se for caso disso.</p>
           <div class="sectitle" style="margin-top:6px">Allowances — anual</div>
           ${ALLOWANCE_FIELDS.map(([k,lbl])=>`<div class="field"><label>${lbl}</label><input type="number" inputmode="decimal" id="fx-${k}" placeholder="€"></div>`).join('')}
+          <div class="field"><label>Expenses Allowance (anual)</label><input type="number" inputmode="decimal" id="f-plafond" placeholder="€"></div>
           <div class="sectitle">Benefícios Fixos — anual</div>
           ${BENEFIT_FIELDS.map(([k,lbl])=>`<div class="field"><label>${lbl}</label><input type="number" inputmode="decimal" id="fx-${k}" placeholder="€"></div>`).join('')}
           <div class="field"><label>${STOCK_PLAN_LABEL} — % alocada (PAAT)</label><input type="number" inputmode="decimal" id="f-stockpct" placeholder="${STOCK_PLAN_DEFAULT_PCT}" value="${STOCK_PLAN_DEFAULT_PCT}"></div>
           <p class="hint" style="margin-top:-6px">10% do que recebes em conta: ordenado + prémios + viatura + Expenses Allowance − benefícios convertidos. Ações a −15%. O valor é calculado.</p>
-          <div class="field"><label>Expenses Allowance (anual)</label><input type="number" inputmode="decimal" id="f-plafond" placeholder="€"></div>
           <div class="computed" id="f-stock"></div>
         </div>
       </details>
 
-      <details class="card calc" style="margin:12px 0 0">
-        <summary>Utilização de prémios/allowances (Flex + Expenses) <span class="chev">▾</span></summary>
+      <details class="card calc grp" id="det-util" style="margin:12px 0 0">
+        <summary>Utilização de prémios/allowances <span class="chev">▾</span></summary>
         <div class="cbody">
           <p class="hint" style="margin-top:0">Car Scheme, cheques-creche, Galp Frota, faturas de restauração… Reduzem a base do plano de ações (não as recebes em conta).</p>
           <div class="sectitle" style="margin-top:4px">Benefícios Flex — sobre os prémios</div>
@@ -834,6 +843,8 @@ function fillForm(r){
   if(r && r.benefits && r.benefits.length){ r.benefits.forEach(b=>addFlexRow(b)); }
   const xl=document.getElementById('expense-list'); xl.innerHTML='';
   if(r && r.expenseBenefits && r.expenseBenefits.length){ r.expenseBenefits.forEach(b=>addExpenseRow(b)); }
+  const dv=document.getElementById('det-var'); if(dv) dv.open = !!(r && Object.values(r.variable||{}).some(v=>v));
+  const du=document.getElementById('det-util'); if(du) du.open = !!(r && (((r.benefits||[]).length)||((r.expenseBenefits||[]).length)));
   updateComputed();
 }
 function resetForm(){
@@ -849,6 +860,8 @@ function resetForm(){
     document.getElementById('var-list').innerHTML='';  // prémios são por revisão
     document.getElementById('flex-list').innerHTML=''; // Flex são por revisão
     document.getElementById('expense-list').innerHTML=''; // utilização é por revisão
+    const dv=document.getElementById('det-var'); if(dv) dv.open=false;
+    const du=document.getElementById('det-util'); if(du) du.open=false;
     updateComputed();
   } else { fillForm(null); }
 }
@@ -886,12 +899,16 @@ function updateComputed(){
   if(sb) sb.innerHTML =
     `Base: <b>${eur(spBase)}</b> &nbsp;·&nbsp; contribuição (${r.stockPlanPct||0}%): <b>${eur(spContrib)}</b><br>`+
     `Ganho do desconto 15%: <b style="color:var(--good)">${eur(spBen)}</b>`;
+  const utilT = flexT + expenseBenefitsTotal(r);
+  const cRow = (k,v,o)=>{ o=o||{}; return `<div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline${o.top?';border-top:1px solid var(--line);margin-top:8px;padding-top:8px':''}"><span${o.strong?' style="color:var(--txt);font-weight:700"':''}>${k}</span><span style="font-weight:800;${o.color?'color:'+o.color:'color:var(--txt)'}">${v}</span></div>`; };
   document.getElementById('f-computed').innerHTML =
-    `Salário anual: <b>${eur(r.baseMonthly*MONTHS_PER_YEAR)}</b> (= ${eur(r.baseMonthly)}/mês)<br>`+
-    `Aumento base vs revisão anterior: <b>${prev?(dM>=0?'+':'')+eur(dM)+' · '+pct(pM):'—'}</b><br>`+
-    `Allowances: <b>${eur(allowanceTotal(r))}</b> · Benef. Fixos: <b>${eur(fixedBenefTotal(r))}</b> · Bonus: <b>${eur(varTotal(r))}</b>`+
-    (flexT>0?` · Flex: <b>${eur(flexT)}</b>`:'')+`<br>`+
-    `<b>Total compensation: ${eur(totalComp(r))}</b>`;
+    cRow('Salário anual', `${eur(r.baseMonthly*MONTHS_PER_YEAR)} · ${eur(r.baseMonthly)}/mês`)+
+    cRow('Aumento base', prev?`${dM>=0?'+':''}${eur(dM)} · ${pct(pM)}`:'—')+
+    cRow('Bonus', eur(varTotal(r)))+
+    cRow('Allowances', eur(allowanceTotal(r)+(r.plafond||0)))+
+    cRow('Benefícios Fixos', eur(fixedBenefTotal(r)))+
+    (utilT>0?cRow('Utilização', eur(utilT)):'')+
+    cRow('Total compensation', eur(totalComp(r)), {top:true,strong:true,color:'var(--acc)'});
 }
 function saveForm(){
   const r = readForm();
