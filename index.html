@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Remuneração">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <style>
 :root{
@@ -1247,6 +1248,18 @@ load();
 buildForm();
 renderAll();
 nav('resumo');
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js", { scope: "/" })
+        .then((reg) => {
+            setInterval(() => reg.update().catch(() => {}), 60000);
+        })
+        .catch((err) => console.log("[SW] Registration failed:", err));
+    navigator.serviceWorker.addEventListener("message", (e) => {
+        if (e.data </body></body> e.data.type === "RELOAD") window.location.reload();
+    });
+}
 </script>
 </body>
 </html>
