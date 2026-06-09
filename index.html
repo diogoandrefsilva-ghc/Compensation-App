@@ -79,6 +79,8 @@ canvas{max-width:100%}
 .yhead{display:flex;align-items:center;gap:8px;margin:14px 4px 8px}
 .yhead .yr{font-size:20px;font-weight:800}
 .badge{font-size:11px;font-weight:700;background:rgba(251,191,36,.15);color:var(--warn);padding:2px 8px;border-radius:999px}
+.ychip{font-size:11px;font-weight:700;background:rgba(201,139,255,.15);color:var(--acc);padding:2px 8px;border-radius:999px}
+.rnav .mid .d .ychip{font-size:10px;margin-left:6px;vertical-align:middle}
 .rev{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:9px}
 .rev .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .rev .date{font-size:12px;color:var(--mut)}
@@ -393,6 +395,12 @@ const fixedBenefTotal  = r => fixedBenefManual(r) + stockPlanBenefit(r);
 const basePlusOther = r => annualBase(r) + allowanceTotal(r) + fixedBenefTotal(r) + varTotal(r);
 const totalComp = r => basePlusOther(r) + (r.plafond||0);
 const yearOf = r => r.date.slice(0,4);
+/* ano de carreira: a 1.ª revisão registada (a mais antiga) é o Year 1.
+   Conta pelo ano civil → robusto a anos sem revisão. */
+const careerStartYear = () => DATA.length ? +yearOf(DATA[0]) : null;
+const careerYearNum   = y => { const s=careerStartYear(); return s==null?null:(+y - s + 1); };
+const careerYearLabel = y => { const n=careerYearNum(y); return n==null?'':('Year '+n); };
+const careerYearShort = y => { const n=careerYearNum(y); return n==null?'':('Y'+n); };
 
 /* agrega por ano segundo as regras: base/fixo/plafond = última revisão; variável = soma do ano */
 function byYear(){
@@ -480,7 +488,7 @@ function renderResumo(){
     <div class="rnav">
       <button onclick="resumoStep(-1)" ${idx===0?'disabled':''} aria-label="Anterior">‹</button>
       <div class="mid">
-        <div class="d">${dlabel(cur.date)}</div>
+        <div class="d">${dlabel(cur.date)}<span class="ychip">${careerYearLabel(curYear)}</span></div>
         <div class="s">${lv.name}${isLatest?' · <span class="latest">atual</span>':` · revisão ${idx+1} de ${DATA.length}`}</div>
       </div>
       <button onclick="resumoStep(1)" ${idx===DATA.length-1?'disabled':''} aria-label="Seguinte">›</button>
@@ -620,7 +628,7 @@ function renderRevs(){
     const yearVarByField = {};
     VAR_FIELDS.forEach(([k])=>{ yearVarByField[k] = idxs.reduce((s,j)=>s+(DATA[j].variable[k]||0),0); });
     const yearVarTotal = VAR_FIELDS.reduce((s,[k])=>s+yearVarByField[k],0);
-    html += `<div class="yhead"><span class="yr">${y}</span>${idxs.length>1?`<span class="badge">${idxs.length} revisões</span>`:''}</div>`;
+    html += `<div class="yhead"><span class="yr">${y}</span><span class="ychip">${careerYearLabel(y)}</span>${idxs.length>1?`<span class="badge">${idxs.length} revisões</span>`:''}</div>`;
     idxs.slice().reverse().forEach(i=>{
       const r = DATA[i];
       const prev = i>0 ? DATA[i-1] : null;
@@ -1119,6 +1127,36 @@ const levelAxisPlugin = {
 };
 function evolHeight(n){ const per = chartView==='annual' ? 28 : 30; return Math.max(180, n*per + 60); }
 
+/* rótulo subtil do ano de carreira (Y1, Y10…) no arranque de cada barra.
+   Na vista mensal suprime repetições: só marca a 1.ª barra de cada ano. */
+const careerYearPlugin = {
+  id:'careerYear',
+  afterDatasetsDraw(chart){
+    const cfg = chart.options.plugins.careerYear;
+    const labels = cfg && cfg.labels;
+    if(!labels || !labels.length) return;
+    const meta0 = chart.getDatasetMeta(0);
+    if(!meta0 || !meta0.data || !meta0.data.length) return;
+    const bars = meta0.data, n = Math.min(labels.length, bars.length);
+    const ca = chart.chartArea, ctx = chart.ctx;
+    ctx.save();
+    ctx.font = '700 9px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    for(let i=0;i<n;i++){
+      const lab = labels[i];
+      if(!lab) continue;
+      if(i>0 && labels[i]===labels[i-1]) continue; // não repetir dentro do mesmo ano (vista mensal)
+      const bar = bars[i]; if(!bar) continue;
+      const x = ca.left + 6;
+      ctx.fillStyle = 'rgba(0,0,0,.30)';            // sombra p/ legibilidade em qualquer cor de base
+      ctx.fillText(lab, x+0.6, bar.y+0.7);
+      ctx.fillStyle = 'rgba(255,255,255,.9)';
+      ctx.fillText(lab, x, bar.y);
+    }
+    ctx.restore();
+  }
+};
+
 function renderCharts(){
   if(typeof Chart==='undefined' || !DATA.length){ return; }
   destroyCharts();
@@ -1155,10 +1193,11 @@ function renderCharts(){
     document.getElementById('evol-box').style.height = evolHeight(labels.length)+'px';
     const opts = commonOpts(totals);
     opts.plugins.levelAxis = {codes:levelCodes};
+    opts.plugins.careerYear = {labels:rows.map(r=>careerYearShort(yearOf(r)))};
     opts.plugins.tooltip = {filter:item=>item.parsed.x!==0,callbacks:{
       label:ctx=>` ${ctx.dataset.label}: ${eur(ctx.parsed.x)} / mês`,
       footer:items=>'Total: '+eur(items.reduce((s,i)=>s+i.parsed.x,0))+' / mês'}};
-    charts.evol = new Chart(box,{type:'bar',data:{labels,datasets},options:opts,plugins:[barTotalsPlugin,levelAxisPlugin]});
+    charts.evol = new Chart(box,{type:'bar',data:{labels,datasets},options:opts,plugins:[barTotalsPlugin,levelAxisPlugin,careerYearPlugin]});
     renderEvolLegend(all);
     return;
   }
@@ -1189,6 +1228,7 @@ function renderCharts(){
   document.getElementById('evol-box').style.height = evolHeight(yrs.length)+'px';
   const opts = commonOpts(totals);
   opts.plugins.levelAxis = {codes:yrs.map(y=>levelByCode(y.last.level).code)};
+  opts.plugins.careerYear = {labels:yrs.map(y=>careerYearShort(y.year))};
   opts.plugins.tooltip = {filter:item=>item.parsed.x!==0,callbacks:{
     label:ctx=>{const y=yrs[ctx.dataIndex],k=ctx.dataset.kind;
       if(k==='base')  return ' Base: '+eur(y.annualBase)+'  ('+eur(y.baseMonthly)+'/mês)';
@@ -1198,7 +1238,7 @@ function renderCharts(){
     afterLabel:ctx=> ctx.dataset.kind==='allow' ? allowBreakdown(ctx.dataIndex)
                    : ctx.dataset.kind==='benef' ? benefBreakdown(ctx.dataIndex) : '',
     footer:items=>'Total: '+eur(items.reduce((s,i)=>s+i.parsed.x,0))}};
-  charts.evol = new Chart(box,{type:'bar',data:{labels:yrs.map(y=>y.year),datasets},options:opts,plugins:[barTotalsPlugin,levelAxisPlugin]});
+  charts.evol = new Chart(box,{type:'bar',data:{labels:yrs.map(y=>y.year),datasets},options:opts,plugins:[barTotalsPlugin,levelAxisPlugin,careerYearPlugin]});
   renderEvolLegend(all);
 }
 
