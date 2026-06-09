@@ -2,7 +2,7 @@
 <html lang="pt">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0a0612">
 <title>Remuneração</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -26,15 +26,17 @@ html,body{margin:0;padding:0}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   background:linear-gradient(180deg,#0a0612,#06030c);color:var(--txt);
-  padding-bottom:78px;font-size:15px;line-height:1.45;
+  padding-bottom:calc(82px + env(safe-area-inset-bottom));font-size:15px;line-height:1.45;
 }
 header{
   position:sticky;top:0;z-index:30;background:rgba(10,6,18,.92);backdrop-filter:blur(10px);
   padding:14px 18px 13px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
 }
-header .brand{display:flex;align-items:center;gap:10px}
-header .acn-mark{height:21px;width:auto;color:var(--acc2);display:block;filter:drop-shadow(0 0 9px rgba(161,0,255,.5))}
+header .brand{display:flex;align-items:center;gap:10px;min-width:0}
+header .acn-mark{height:21px;width:auto;color:var(--acc2);display:block;flex:0 0 auto;filter:drop-shadow(0 0 9px rgba(161,0,255,.5))}
 header .brand-name{font-size:19px;font-weight:700;letter-spacing:.3px;color:var(--txt)}
+header .hdr-view{flex:0 0 auto;font-size:12px;font-weight:700;color:var(--acc);background:var(--pill);padding:5px 12px;border-radius:999px;letter-spacing:.3px}
 main{padding:14px 14px 20px;max-width:760px;margin:0 auto}
 section{display:none;animation:fade .25s ease}
 section.active{display:block}
@@ -125,7 +127,7 @@ input:focus,select:focus{border-color:var(--acc2)}
 .toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:#140e20;border:1px solid var(--line);color:var(--txt);padding:11px 18px;border-radius:12px;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:60}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
 /* nav */
-nav{position:fixed;bottom:0;left:0;right:0;z-index:40;display:flex;background:rgba(13,9,20,.96);backdrop-filter:blur(12px);border-top:1px solid var(--line)}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:40;display:flex;background:rgba(13,9,20,.96);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:0 calc(6px + env(safe-area-inset-right)) calc(env(safe-area-inset-bottom) + 4px) calc(6px + env(safe-area-inset-left))}
 nav button{flex:1;background:none;border:none;color:var(--mut);padding:9px 2px 10px;font-size:10.5px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
 nav button.active{color:var(--acc)}
 nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9}
@@ -197,6 +199,7 @@ details.tax .tbody{padding:0 16px 14px}
     <svg class="acn-mark" viewBox="0 0 84 90" aria-hidden="true"><path d="M0 0 L84 33 L84 57 L0 90 L0 66 L42 45 L0 24 Z" fill="currentColor"/></svg>
     <span class="brand-name">Compensação</span>
   </div>
+  <span class="hdr-view" id="hdr-view">Resumo</span>
 </header>
 
 <main>
@@ -425,12 +428,14 @@ const MONTHS_PT = ['','jan','fev','mar','abr','mai','jun','jul','ago','set','out
 function dlabel(d){ const [y,m]=d.split('-'); return MONTHS_PT[+m]+'/'+y; }
 
 /* =================== NAVEGAÇÃO =================== */
+const VIEWS={resumo:'Resumo',evol:'Evolução',revs:'Revisões',form:'Nova',backup:'Backup'};
 let current='resumo';
 function nav(v){
   current=v;
   document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
+  const hv=document.getElementById('hdr-view'); if(hv) hv.textContent=VIEWS[v]||'';
   window.scrollTo(0,0);
   if(v==='evol'){ renderCharts(); }
   if(v==='form' && editIndex===null) resetForm();
