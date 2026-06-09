@@ -211,8 +211,8 @@ details.tax .tbody{padding:0 16px 14px}
   <section id="view-evol">
     <div class="evol-sticky">
       <div class="seg">
-        <button class="seg-btn" data-cv="monthly" onclick="setChartView('monthly')">Mensal</button>
-        <button class="seg-btn on" data-cv="annual" onclick="setChartView('annual')">Anual</button>
+        <button class="seg-btn on" data-cv="monthly" onclick="setChartView('monthly')">Mensal</button>
+        <button class="seg-btn" data-cv="annual" onclick="setChartView('annual')">Anual</button>
       </div>
       <div class="elegend" id="evol-legend"></div>
     </div>
@@ -1009,7 +1009,7 @@ function byYearF(){
 /* =================== CHARTS =================== */
 let charts={};
 function destroyCharts(){ Object.values(charts).forEach(c=>c&&c.destroy()); charts={}; }
-let chartView = 'annual';            // 'annual' | 'monthly'
+let chartView = 'monthly';           // 'annual' | 'monthly'
 const RIGHT_GUTTER = 64;             // espaço (px) reservado à direita p/ o total
 const LEVEL_GUTTER = 40;             // espaço (px) reservado à esquerda p/ as chavetas de nível
 let evolHidden = { annual:new Set(), monthly:new Set() }; // parcelas escondidas, por vista
@@ -1134,6 +1134,7 @@ const careerYearPlugin = {
   afterDatasetsDraw(chart){
     const cfg = chart.options.plugins.careerYear;
     const labels = cfg && cfg.labels;
+    const repeat = cfg && cfg.repeat;
     if(!labels || !labels.length) return;
     const meta0 = chart.getDatasetMeta(0);
     if(!meta0 || !meta0.data || !meta0.data.length) return;
@@ -1145,7 +1146,7 @@ const careerYearPlugin = {
     for(let i=0;i<n;i++){
       const lab = labels[i];
       if(!lab) continue;
-      if(i>0 && labels[i]===labels[i-1]) continue; // não repetir dentro do mesmo ano (vista mensal)
+      if(!repeat && i>0 && labels[i]===labels[i-1]) continue; // suprimir repetição só quando pedido
       const bar = bars[i]; if(!bar) continue;
       const x = ca.left + 6;
       ctx.fillStyle = 'rgba(0,0,0,.30)';            // sombra p/ legibilidade em qualquer cor de base
@@ -1193,7 +1194,7 @@ function renderCharts(){
     document.getElementById('evol-box').style.height = evolHeight(labels.length)+'px';
     const opts = commonOpts(totals);
     opts.plugins.levelAxis = {codes:levelCodes};
-    opts.plugins.careerYear = {labels:rows.map(r=>careerYearShort(yearOf(r)))};
+    opts.plugins.careerYear = {labels:rows.map(r=>careerYearShort(yearOf(r))), repeat:true};
     opts.plugins.tooltip = {filter:item=>item.parsed.x!==0,callbacks:{
       label:ctx=>` ${ctx.dataset.label}: ${eur(ctx.parsed.x)} / mês`,
       footer:items=>'Total: '+eur(items.reduce((s,i)=>s+i.parsed.x,0))+' / mês'}};
