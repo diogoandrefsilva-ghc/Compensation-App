@@ -13,6 +13,10 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <style>
+/* Bloqueia pinch-zoom e double-tap zoom (iOS PWA) */
+*{touch-action:manipulation}
+html,body{touch-action:pan-x pan-y}
+
 :root{
   --bg:#0a0612; --bg2:#14101f; --card:#1a1426; --card2:#221a33;
   --txt:#f2ecfb; --mut:#a99fc0; --line:#332846;
