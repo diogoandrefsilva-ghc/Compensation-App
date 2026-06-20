@@ -202,13 +202,13 @@ details.tax .tbody{padding:0 16px 14px}
 .layer .card{padding:12px 13px}                            /* cards mais condensados que o resto da app */
 .layer .stack{display:flex;flex-direction:column;gap:7px;min-width:0}
 .layer .stack>*{margin-bottom:0;flex:1}                    /* os 2 cards pequenos preenchem a altura */
-.layer .big-card{margin-bottom:0;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px}
+.layer .big-card{margin-bottom:0;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px;position:relative;padding-bottom:26px}  /* padding-bottom reserva a faixa p/ o delta no canto */
 .layer .big-card .lbl{color:var(--mut);font-size:12.5px}
 .layer .big-card .big{font-size:clamp(23px,7.4vw,33px);font-weight:800;letter-spacing:-.5px;line-height:1.04}  /* totais maiores: aproveitam o espaço livre */
 .layer .big-card .big small{font-size:13px;font-weight:600;color:var(--mut)}
 .layer .big-card .sub{font-size:11.5px;color:var(--mut);margin-top:1px;line-height:1.35}
-.layer .big-card .mbadge{align-self:flex-start;background:var(--pill);color:var(--mut);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;margin-top:3px}  /* mensal em badge */
-.layer .big-card .delta{font-size:10.5px;padding:2px 7px;gap:4px;margin-top:1px;white-space:nowrap}    /* delta compacto, sempre numa linha */
+.layer .big-card .mbadge{align-self:flex-start;background:var(--pill);color:var(--acc);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;margin-top:3px}  /* mensal em badge */
+.layer .big-card .delta{position:absolute;right:11px;bottom:9px;font-size:10.5px;padding:2px 7px;gap:4px;white-space:nowrap}    /* delta no canto inferior direito */
 .layer .kpi{margin-bottom:0;padding:9px 12px;display:flex;flex-direction:column;justify-content:center}
 .layer .kpi .lbl{font-size:11.5px}
 .layer .kpi .val{font-size:18px;margin-top:2px}
