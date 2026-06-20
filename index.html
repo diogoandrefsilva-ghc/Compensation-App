@@ -619,7 +619,7 @@ function renderResumo(){
       <div class="card big-card">
         <span class="lbl">Total cash</span>
         <span class="big">${eur(totalCashC)}</span>
-        <span class="mbadge"><span class="amt">${eur(baseCarExpMo)}</span><span class="per"> / mês</span> <span class="paren">(base + car${cur.plafond?' + expenses':''})</span></span>
+        <span class="mbadge"><span class="amt">${eur(baseCarExpMo)}</span><span class="per"> / mês</span> <span class="paren">(base + car${cur.plafond?' + exp':''})</span></span>
         ${cur.fixed.lunch?`<span class="mbadge"><span class="amt">${eur(lunchMo)}</span><span class="per"> / mês</span> <span class="paren">(lunch)</span></span>`:''}
         <span class="mbadge var"><span class="amt">${eur(varAno)}</span> <span class="paren">(bonus)</span></span>
         ${prevYr?`<span class="delta ${clsCash}">${arrowCash} ${dCash>=0?'+':''}${eur(dCash)} · ${pct(pCash)}</span>`:''}
