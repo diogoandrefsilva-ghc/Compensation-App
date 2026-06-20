@@ -226,7 +226,7 @@ details.tax .tbody{padding:0 16px 14px}
 .layer .big-card .big + .mbadge{margin-top:8px}
 .layer .kpi.tap .chev{top:10px;right:10px}
 .layer-detail{margin-bottom:10px}
-.layer-sep{height:1px;background:var(--line);opacity:.55;margin:2px 8px 12px;border-radius:1px}  /* traço leve entre camadas */
+.layer-sep{height:1.5px;background:#c2a6e8;margin:2px 8px 12px;border-radius:2px}  /* traço entre camadas */
 </style>
 </head>
 <body>
@@ -1167,7 +1167,9 @@ const barTotalsPlugin = {
     const ctx = chart.ctx, n = chart.data.labels.length;
     ctx.save();
     ctx.font = '700 10px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
-    ctx.fillStyle = '#f2ecfb';
+    ctx.fillStyle = '#251539';
+    ctx.strokeStyle = 'rgba(255,255,255,.9)';
+    ctx.lineWidth = 3; ctx.lineJoin = 'round';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     for(let i=0;i<n;i++){
@@ -1175,6 +1177,7 @@ const barTotalsPlugin = {
       chart.data.datasets.forEach((ds,di)=>{ if(chart.isDatasetVisible(di)) sum += (+ds.data[i]||0); });
       if(!sum) continue;
       const bar = meta0.data[i]; if(!bar) continue;
+      ctx.strokeText(eur(sum), chart.width - 6, bar.y);
       ctx.fillText(eur(sum), chart.width - 6, bar.y);
     }
     ctx.restore();
