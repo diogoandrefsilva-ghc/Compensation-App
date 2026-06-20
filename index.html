@@ -708,6 +708,10 @@ function buildForm(){
   const el = document.getElementById('view-form');
   el.innerHTML = `
     <div class="card">
+      <div class="field" id="prefill-wrap" hidden style="margin-bottom:6px">
+        <label>Copiar dados de outra revisão</label>
+        <select id="f-prefill" onchange="onPrefillChange()"></select>
+      </div>
       <div class="field"><label>Data da revisão</label><input type="month" id="f-date"></div>
       <div class="frow">
         <div class="field"><label>Nível</label><select id="f-level">${LEVELS.map(l=>`<option value="${l.code}">${l.name}</option>`).join('')}</select></div>
@@ -767,6 +771,7 @@ function buildForm(){
   `;
   ['f-annual',...ALLOWANCE_FIELDS.map(([k])=>'fx-'+k),...BENEFIT_FIELDS.map(([k])=>'fx-'+k),'f-plafond','f-stockpct']
     .forEach(id=>document.getElementById(id).addEventListener('input',updateComputed));
+  refreshPrefill();
 }
 
 /* ---- Variável: linhas de prémio dinâmicas (form) ---- */
@@ -900,6 +905,29 @@ function fillForm(r){
   const du=document.getElementById('det-util'); if(du) du.open = !!(r && (((r.benefits||[]).length)||((r.expenseBenefits||[]).length)));
   updateComputed();
 }
+function refreshPrefill(){
+  const wrap=document.getElementById('prefill-wrap');
+  const sel=document.getElementById('f-prefill');
+  if(!wrap||!sel) return;
+  if(editIndex!==null || !DATA.length){ wrap.hidden=true; sel.innerHTML=''; return; }
+  wrap.hidden=false;
+  const opts=['<option value="">— escolher revisão a copiar —</option>'];
+  DATA.map((r,i)=>[r,i]).sort((a,b)=>(b[0].date||'').localeCompare(a[0].date||''))
+    .forEach(([r,i])=>{ opts.push(`<option value="${i}">${r.date||'(sem data)'}${r.level?' · '+r.level:''}${r.banding?' · '+r.banding:''}</option>`); });
+  sel.innerHTML=opts.join('');
+  sel.value='';
+}
+function onPrefillChange(){
+  const sel=document.getElementById('f-prefill');
+  if(!sel || sel.value==='') return;
+  const r=DATA[+sel.value];
+  if(!r) return;
+  fillForm(r);                                  // copia tudo da revisão escolhida
+  document.getElementById('f-date').value='';   // a data tem de ser nova
+  refreshPrefill();                             // repõe o dropdown no placeholder
+  updateComputed();
+  const d=document.getElementById('f-date'); if(d) d.focus();
+}
 function resetForm(){
   editIndex=null;
   document.getElementById('f-save').textContent='Guardar revisão';
@@ -917,6 +945,7 @@ function resetForm(){
     const du=document.getElementById('det-util'); if(du) du.open=false;
     updateComputed();
   } else { fillForm(null); }
+  refreshPrefill();
 }
 function readForm(){
   const fixed={};
