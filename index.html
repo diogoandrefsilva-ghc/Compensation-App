@@ -200,15 +200,16 @@ details.tax .tbody{padding:0 16px 14px}
 /* ===== Resumo compacto: 3 camadas (1 card grande + 2 pequenos) ===== */
 .layer{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:9px;align-items:stretch}  /* colunas iguais: grandes e pequenos com a mesma largura, só varia a altura */
 .layer .card{padding:12px 13px}                            /* cards mais condensados que o resto da app */
-.layer .stack{display:flex;flex-direction:column;gap:9px;min-width:0}
+.layer .stack{display:flex;flex-direction:column;gap:7px;min-width:0}
 .layer .stack>*{margin-bottom:0;flex:1}                    /* os 2 cards pequenos preenchem a altura */
 .layer .big-card{margin-bottom:0;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px}
 .layer .big-card .lbl{color:var(--mut);font-size:12.5px}
-.layer .big-card .big{font-size:clamp(20px,6.4vw,28px);font-weight:800;letter-spacing:-.5px;line-height:1.04}
+.layer .big-card .big{font-size:clamp(23px,7.4vw,33px);font-weight:800;letter-spacing:-.5px;line-height:1.04}  /* totais maiores: aproveitam o espaço livre */
 .layer .big-card .big small{font-size:13px;font-weight:600;color:var(--mut)}
 .layer .big-card .sub{font-size:11.5px;color:var(--mut);margin-top:1px;line-height:1.35}
+.layer .big-card .mbadge{align-self:flex-start;background:var(--pill);color:var(--mut);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;margin-top:3px}  /* mensal em badge */
 .layer .big-card .delta{font-size:10.5px;padding:2px 7px;gap:4px;margin-top:1px;white-space:nowrap}    /* delta compacto, sempre numa linha */
-.layer .kpi{margin-bottom:0;padding:12px 13px;display:flex;flex-direction:column;justify-content:center}
+.layer .kpi{margin-bottom:0;padding:9px 12px;display:flex;flex-direction:column;justify-content:center}
 .layer .kpi .lbl{font-size:11.5px}
 .layer .kpi .val{font-size:18px;margin-top:2px}
 .layer .kpi .note{font-size:10.5px;margin-top:2px}
@@ -523,8 +524,7 @@ function renderResumo(){
         <div class="s">${lv.name}${isLatest?' · <span class="latest">atual</span>':` · revisão ${idx+1} de ${DATA.length}`}</div>
       </div>
       <button onclick="resumoStep(1)" ${idx===DATA.length-1?'disabled':''} aria-label="Seguinte">›</button>
-    </div>
-    ${!isLatest?`<div class="frow-actions"><button class="btn ghost sm" style="width:100%" onclick="resumoLatest()">↩ Voltar à revisão atual</button></div>`:''}`;
+    </div>`;
 
   const benT = fixedBenefTotal(cur);
   const flexT = flexTotal(cur);
@@ -559,9 +559,9 @@ function renderResumo(){
     <div class="layer">
       <div class="card big-card">
         <span class="lbl">Salário base</span>
-        <span class="big">${eur(annualBase(cur))} <small>/ ano</small></span>
+        <span class="big">${eur(annualBase(cur))}</span>
         <span class="delta ${cls}">${arrow} ${dM>=0?'+':''}${eur(dM*MONTHS_PER_YEAR)} · ${pct(pM)}</span>
-        <span class="sub">Mensal (×${MONTHS_PER_YEAR}): <b style="color:var(--txt)">${eur(cur.baseMonthly)}</b> / mês</span>
+        <span class="mbadge">${eur(cur.baseMonthly)} / mês</span>
       </div>
       <div class="stack">
         <div class="card kpi tap edge-l" id="kpi-c-allow" onclick="toggleKpi('allow')"><span class="chev">▾</span><div class="lbl">Allowances / ano</div><div class="val">${eur(allowanceTotal(cur)+(cur.plafond||0))}</div><div class="note">lunch + car${cur.plafond?' + expenses':''}</div></div>
