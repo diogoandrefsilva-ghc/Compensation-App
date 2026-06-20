@@ -754,6 +754,7 @@ function buildForm(){
           <button class="btn ghost sm" type="button" onclick="addFlexRow()" style="margin-bottom:6px">+ Adicionar benefício Flex</button>
           <div class="sectitle">Utilização do Expenses Allowance</div>
           <div id="expense-list"></div>
+          <button class="btn ghost sm" type="button" onclick="addExpenseRow()" style="margin-bottom:6px">+ Adicionar utilização</button>
           ${IS_OWNER ? `<button class="btn ghost sm" type="button" onclick="pullFromExpensesAcc(this)" style="margin:0 0 6px">⬇ Puxar do Expenses-Acc</button>
           <p class="hint" style="margin-top:0;font-size:11px;opacity:.7">Substitui a utilização por dados em tempo real do Expenses-Acc, segundo a FY da data da revisão (ano + 1 → FY).</p>` : ''}
         </div>
