@@ -271,6 +271,8 @@ details.tax .tbody{padding:0 16px 14px}
 <script>
 /* =================== MODELO =================== */
 const LS_KEY = 'salario_accenture_v1';
+const OWNER_SECRET = 'flag-sync-Expenses-Diogo';
+const OWNER_KEY = 'comp_owner';
 const MONTHS_PER_YEAR = 14; // 12 + férias + natal
 
 /* id = identificador legível do nível (mostrado nas chavetas do gráfico);
@@ -341,7 +343,13 @@ const expenseLabel = t => (EXPENSE_TYPES.find(x=>x[0]===t)||[null,t||'despesa'])
 
 /* =================== ESTADO =================== */
 let DATA = [];
+let IS_OWNER = false;
+function setOwner(v){
+  IS_OWNER = !!v;
+  try{ if(v) localStorage.setItem(OWNER_KEY,'1'); else localStorage.removeItem(OWNER_KEY); }catch(e){}
+}
 function load(){
+  try{ IS_OWNER = localStorage.getItem(OWNER_KEY) === '1'; }catch(e){ IS_OWNER = false; }
   try{
     const raw = localStorage.getItem(LS_KEY);
     DATA = raw ? JSON.parse(raw) : [];
@@ -746,8 +754,8 @@ function buildForm(){
           <button class="btn ghost sm" type="button" onclick="addFlexRow()" style="margin-bottom:6px">+ Adicionar benefício Flex</button>
           <div class="sectitle">Utilização do Expenses Allowance</div>
           <div id="expense-list"></div>
-          <button class="btn ghost sm" type="button" onclick="pullFromExpensesAcc(this)" style="margin:0 0 6px">⬇ Puxar do Expenses-Acc</button>
-          <p class="hint" style="margin-top:0;font-size:11px;opacity:.7">Substitui a utilização por dados em tempo real do Expenses-Acc, segundo a FY da data da revisão (ano + 1 → FY).</p>
+          ${IS_OWNER ? `<button class="btn ghost sm" type="button" onclick="pullFromExpensesAcc(this)" style="margin:0 0 6px">⬇ Puxar do Expenses-Acc</button>
+          <p class="hint" style="margin-top:0;font-size:11px;opacity:.7">Substitui a utilização por dados em tempo real do Expenses-Acc, segundo a FY da data da revisão (ano + 1 → FY).</p>` : ''}
         </div>
       </details>
 
@@ -1250,7 +1258,8 @@ function renderCharts(){
 
 /* =================== BACKUP =================== */
 function exportJSON(){
-  const blob=new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'});
+  const payload = IS_OWNER ? { owner: OWNER_SECRET, data: DATA } : DATA;
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='compensation-data.json';
@@ -1264,8 +1273,11 @@ function importJSON(){
   rd.onload=()=>{
     try{
       const d=JSON.parse(rd.result);
-      if(!Array.isArray(d)) throw 0;
-      DATA=d; normalize(); save(); renderAll();
+      let arr;
+      if(Array.isArray(d)){ arr=d; }
+      else if(d && typeof d==='object' && Array.isArray(d.data)){ arr=d.data; if(d.owner===OWNER_SECRET) setOwner(true); }
+      else throw 0;
+      DATA=arr; normalize(); save(); renderAll();
       toast('Importado ✓'); nav('resumo');
     }catch(e){ toast('Ficheiro inválido'); }
   };
