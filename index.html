@@ -35,7 +35,6 @@ body{
   background:linear-gradient(180deg,#f4effc,#efe7fa);color:var(--txt);
   padding-bottom:calc(82px + env(safe-area-inset-bottom));font-size:15px;line-height:1.45;
 }
-#view-resumo{text-transform:capitalize}  /* InitCap na sheet de resumo */
 header{
   position:sticky;top:0;z-index:30;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);
   padding:14px 18px 13px;border-bottom:1px solid var(--line);
@@ -501,6 +500,28 @@ function toggleKpi(key){
   const open=!d.classList.contains('open');
   d.classList.toggle('open',open); c.classList.toggle('open',open);
 }
+/* ---- InitCap PT (sheet de resumo): capitaliza tudo, exceto artigos/preposições/conjunções
+   curtas quando não estão no início de cada etiqueta. Cada elemento .lbl/.note/.k/etc. conta
+   como uma "frase" própria — só a 1ª palavra dessa etiqueta força capitalização mesmo se fosse
+   uma destas palavras. Não toca em texto corrido (parágrafos), só nas etiquetas/labels. ---- */
+const PT_LOWERCASE_WORDS = new Set(['a','o','as','os','um','uma','uns','umas','de','do','da','dos','das','em','no','na','nos','nas','ao','aos','à','às','por','para','com','e','ou','que','se']);
+function tcaseWord(w, isFirst){
+  const lw = w.toLowerCase();
+  if(!isFirst && PT_LOWERCASE_WORDS.has(lw)) return lw;
+  return lw.charAt(0).toUpperCase()+w.slice(1);
+}
+function tcaseScope(root){
+  let i=0;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  let node;
+  while(node = walker.nextNode()){
+    node.nodeValue = node.nodeValue.replace(/[A-Za-zÀ-ÖØ-öø-ÿ]+/g, w => { const out = tcaseWord(w, i===0); i++; return out; });
+  }
+}
+function applyResumoTitleCase(){
+  document.querySelectorAll('#view-resumo .lbl, #view-resumo .note, #view-resumo .k, #view-resumo .ychip, #view-resumo .latest, #view-resumo .foot, #view-resumo .rnav .s, #view-resumo summary')
+    .forEach(tcaseScope);
+}
 function renderResumo(){
   const el = document.getElementById('view-resumo');
   if(!DATA.length){ el.innerHTML='<div class="card center"><p style="font-size:34px;margin:6px 0">📥</p><p>Ainda não há dados neste dispositivo.</p><p class="muted" style="font-size:13px">Vai a <b>Backup</b> e importa o teu ficheiro JSON, ou regista a primeira revisão em <b>Nova</b>.</p><button class="btn primary" style="margin-top:10px" onclick="nav(\'backup\')">Ir para Backup</button></div>'; return; }
@@ -650,6 +671,7 @@ function renderResumo(){
 
     <small class="foot">${DATA.length} revisões registadas</small>
   `;
+  applyResumoTitleCase();
 }
 
 /* =================== REVISÕES =================== */
