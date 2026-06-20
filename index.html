@@ -221,9 +221,9 @@ details.tax .tbody{padding:0 16px 14px}
 .layer .kpi .val{font-size:18px;margin-top:2px}
 .layer .kpi .note{font-size:10.5px;margin-top:2px}
 .kpi .delta.sm{font-size:9px;font-weight:700;padding:1px 6px;gap:3px;margin-left:6px;vertical-align:middle}
-.layer .kpi.dc{padding-bottom:20px}
-.layer .kpi.dc .delta.sm{position:absolute;right:11px;bottom:7px;margin-left:0}
-.kpi.dc .pbase{position:absolute;left:12px;bottom:8px;font-size:9px;font-weight:700;color:var(--mut);background:var(--pill);padding:1px 7px;border-radius:999px;line-height:1.4}
+.kpi.dc .note{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.kpi .pbase{font-size:9px;font-weight:700;color:var(--mut);background:var(--pill);padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:middle;white-space:nowrap}
+.layer .big-card .big + .mbadge{margin-top:8px}
 .layer .kpi.tap .chev{top:10px;right:10px}
 .layer-detail{margin-bottom:10px}
 .layer-sep{height:1px;background:var(--line);opacity:.55;margin:2px 8px 12px;border-radius:1px}  /* traço leve entre camadas */
@@ -613,8 +613,8 @@ function renderResumo(){
         <span class="mbadge"><span class="amt">${eur(cur.baseMonthly)}</span><span class="per"> / mês</span></span>
       </div>
       <div class="stack">
-        <div class="card kpi tap edge-l dc" id="kpi-c-allow" onclick="toggleKpi('allow')"><span class="chev">▾</span><div class="lbl">Allowances / ano</div><div class="val">${eur(allowNow)}</div><div class="note">lunch + car${cur.plafond?' + exp':''}</div>${prevYr&&allowPrev?`<span class="delta sm ${clsAllow}">${arrowAllow} ${pct(pAllow)}</span>`:''}</div>
-        <div class="card kpi tap edge-r dc" id="kpi-c-var" onclick="toggleKpi('var')"><span class="chev">▾</span><div class="lbl">Bonus / ano</div><div class="val">${eur(varAno)}</div><div class="note">soma dos prémios</div><span class="pbase">${(pBonusBase*100).toLocaleString('pt-PT',{maximumFractionDigits:1})}% do base</span>${prevYr&&bonusPrev?`<span class="delta sm ${clsBonus}">${arrowBonus} ${pct(pBonus)}</span>`:''}</div>
+        <div class="card kpi tap edge-l dc" id="kpi-c-allow" onclick="toggleKpi('allow')"><span class="chev">▾</span><div class="lbl">Allowances / ano</div><div class="val">${eur(allowNow)}</div><div class="note">lunch + car${cur.plafond?' + exp':''}${prevYr&&allowPrev?`<span class="delta sm ${clsAllow}">${arrowAllow} ${pct(pAllow)}</span>`:''}</div></div>
+        <div class="card kpi tap edge-r dc" id="kpi-c-var" onclick="toggleKpi('var')"><span class="chev">▾</span><div class="lbl">Bonus / ano</div><div class="val">${eur(varAno)}<span class="pbase">${(pBonusBase*100).toLocaleString('pt-PT',{maximumFractionDigits:1})}% do base</span></div><div class="note">soma dos prémios${prevYr&&bonusPrev?`<span class="delta sm ${clsBonus}">${arrowBonus} ${pct(pBonus)}</span>`:''}</div></div>
       </div>
     </div>
     <div class="kpi-detail edge-l layer-detail" id="kpi-d-allow"><div class="card"><div class="rows">
