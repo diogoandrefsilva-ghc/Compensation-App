@@ -212,6 +212,10 @@ details.tax .tbody{padding:0 16px 14px}
 .layer .big-card .sub{font-size:11.5px;color:var(--mut);margin-top:1px;line-height:1.35}
 .layer .big-card .mbadge{align-self:flex-start;background:var(--pill);color:var(--acc);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;margin-top:3px}  /* mensal em badge */
 .layer .big-card .delta{position:absolute;right:11px;bottom:9px;font-size:10.5px;padding:2px 7px;gap:4px;white-space:nowrap}    /* delta no canto inferior direito */
+.layer .big-card .mbadge .amt{font-size:12px}
+.layer .big-card .mbadge .per{font-size:9px;font-weight:600;opacity:.85}            /* "/ mês" mais pequeno */
+.layer .big-card .mbadge .paren{font-size:9px;font-weight:500;color:var(--mut)}     /* parênteses esbatidos */
+.layer .big-card .mbadge.var{background:transparent;color:var(--txt);border:1px dashed var(--line)}  /* bonus = variável */
 .layer .kpi{margin-bottom:0;padding:9px 12px;display:flex;flex-direction:column;justify-content:center}
 .layer .kpi .lbl{font-size:11.5px}
 .layer .kpi .val{font-size:18px;margin-top:2px}
@@ -575,6 +579,10 @@ function renderResumo(){
   const pCash = prevYr && prevCash ? dCash/prevCash : 0;
   const clsCash = dCash>0?'up':dCash<0?'down':'flat';
   const arrowCash = dCash>0?'▲':dCash<0?'▼':'■';
+  // --- Badges do Total cash: repartição mensal do fixo + bonus ---
+  const MONTHS_ALLOW = 12; // allowances repartidas /mês (a base usa baseMonthly ×14). Muda p/ 14 se preferires.
+  const baseCarExpMo = cur.baseMonthly + ((cur.fixed.car||0) + (cur.plafond||0)) / MONTHS_ALLOW;
+  const lunchMo = (cur.fixed.lunch||0) / MONTHS_ALLOW;
   // a repartição fiscal divide o Total Cash; os benefícios fixos saem para fora
   const naoTributavel = (cur.fixed.lunch||0) + flexT + expBen; // lunch + flex + utilização do plafond
   const tributavel = totalCashC - naoTributavel;
@@ -586,7 +594,7 @@ function renderResumo(){
         <span class="lbl">Salário base</span>
         <span class="big">${eur(annualBase(cur))}</span>
         <span class="delta ${cls}">${arrow} ${dM>=0?'+':''}${eur(dM*MONTHS_PER_YEAR)} · ${pct(pM)}</span>
-        <span class="mbadge">${eur(cur.baseMonthly)} / mês</span>
+        <span class="mbadge"><span class="amt">${eur(cur.baseMonthly)}</span><span class="per"> / mês</span></span>
       </div>
       <div class="stack">
         <div class="card kpi tap edge-l" id="kpi-c-allow" onclick="toggleKpi('allow')"><span class="chev">▾</span><div class="lbl">Allowances / ano</div><div class="val">${eur(allowanceTotal(cur)+(cur.plafond||0))}</div><div class="note">lunch + car${cur.plafond?' + expenses':''}</div></div>
@@ -611,6 +619,9 @@ function renderResumo(){
       <div class="card big-card">
         <span class="lbl">Total cash</span>
         <span class="big">${eur(totalCashC)}</span>
+        <span class="mbadge"><span class="amt">${eur(baseCarExpMo)}</span><span class="per"> / mês</span> <span class="paren">(base + car${cur.plafond?' + expenses':''})</span></span>
+        ${cur.fixed.lunch?`<span class="mbadge"><span class="amt">${eur(lunchMo)}</span><span class="per"> / mês</span> <span class="paren">(lunch)</span></span>`:''}
+        <span class="mbadge var"><span class="amt">${eur(varAno)}</span> <span class="paren">(bonus)</span></span>
         ${prevYr?`<span class="delta ${clsCash}">${arrowCash} ${dCash>=0?'+':''}${eur(dCash)} · ${pct(pCash)}</span>`:''}
       </div>
       <div class="stack">
