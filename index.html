@@ -220,6 +220,7 @@ details.tax .tbody{padding:0 16px 14px}
 .layer .kpi .lbl{font-size:11.5px}
 .layer .kpi .val{font-size:18px;margin-top:2px}
 .layer .kpi .note{font-size:10.5px;margin-top:2px}
+.kpi .delta.sm{font-size:9px;font-weight:700;padding:1px 6px;gap:3px;margin-left:6px;vertical-align:middle}
 .layer .kpi.tap .chev{top:10px;right:10px}
 .layer-detail{margin-bottom:10px}
 .layer-sep{height:1px;background:var(--line);opacity:.55;margin:2px 8px 12px;border-radius:1px}  /* traço leve entre camadas */
@@ -583,6 +584,16 @@ function renderResumo(){
   const MONTHS_ALLOW = 12; // allowances repartidas /mês (a base usa baseMonthly ×14). Muda p/ 14 se preferires.
   const baseCarExpMo = cur.baseMonthly + ((cur.fixed.car||0) + (cur.plafond||0)) / MONTHS_ALLOW;
   const lunchMo = (cur.fixed.lunch||0) / MONTHS_ALLOW;
+  // deltas YoY (só %) para os cards Allowances e Bonus
+  const allowNow = allowanceTotal(cur)+(cur.plafond||0);
+  const allowPrev = prevYr ? (prevYr.allowances + prevYr.plafond) : 0;
+  const pAllow = allowPrev ? (allowNow-allowPrev)/allowPrev : 0;
+  const clsAllow = allowNow>allowPrev?'up':allowNow<allowPrev?'down':'flat';
+  const arrowAllow = allowNow>allowPrev?'▲':allowNow<allowPrev?'▼':'■';
+  const bonusPrev = prevYr ? prevYr.variable : 0;
+  const pBonus = bonusPrev ? (varAno-bonusPrev)/bonusPrev : 0;
+  const clsBonus = varAno>bonusPrev?'up':varAno<bonusPrev?'down':'flat';
+  const arrowBonus = varAno>bonusPrev?'▲':varAno<bonusPrev?'▼':'■';
   // a repartição fiscal divide o Total Cash; os benefícios fixos saem para fora
   const naoTributavel = (cur.fixed.lunch||0) + flexT + expBen; // lunch + flex + utilização do plafond
   const tributavel = totalCashC - naoTributavel;
@@ -597,8 +608,8 @@ function renderResumo(){
         <span class="mbadge"><span class="amt">${eur(cur.baseMonthly)}</span><span class="per"> / mês</span></span>
       </div>
       <div class="stack">
-        <div class="card kpi tap edge-l" id="kpi-c-allow" onclick="toggleKpi('allow')"><span class="chev">▾</span><div class="lbl">Allowances / ano</div><div class="val">${eur(allowanceTotal(cur)+(cur.plafond||0))}</div><div class="note">lunch + car${cur.plafond?' + expenses':''}</div></div>
-        <div class="card kpi tap edge-r" id="kpi-c-var" onclick="toggleKpi('var')"><span class="chev">▾</span><div class="lbl">Bonus / ano</div><div class="val">${eur(varAno)}</div><div class="note">soma dos prémios do ano</div></div>
+        <div class="card kpi tap edge-l" id="kpi-c-allow" onclick="toggleKpi('allow')"><span class="chev">▾</span><div class="lbl">Allowances / ano</div><div class="val">${eur(allowNow)}${prevYr&&allowPrev?` <span class="delta sm ${clsAllow}">${arrowAllow} ${pct(pAllow)}</span>`:''}</div><div class="note">lunch + car${cur.plafond?' + expenses':''}</div></div>
+        <div class="card kpi tap edge-r" id="kpi-c-var" onclick="toggleKpi('var')"><span class="chev">▾</span><div class="lbl">Bonus / ano</div><div class="val">${eur(varAno)}${prevYr&&bonusPrev?` <span class="delta sm ${clsBonus}">${arrowBonus} ${pct(pBonus)}</span>`:''}</div><div class="note">soma dos prémios do ano</div></div>
       </div>
     </div>
     <div class="kpi-detail edge-l layer-detail" id="kpi-d-allow"><div class="card"><div class="rows">
@@ -622,10 +633,9 @@ function renderResumo(){
         <span class="mbadge"><span class="amt">${eur(baseCarExpMo)}</span><span class="per"> / mês</span> <span class="paren">(base + car${cur.plafond?' + exp':''})</span></span>
         ${cur.fixed.lunch?`<span class="mbadge"><span class="amt">${eur(lunchMo)}</span><span class="per"> / mês</span> <span class="paren">(lunch)</span></span>`:''}
         <span class="mbadge var"><span class="amt">${eur(varAno)}</span> <span class="paren">(bonus)</span></span>
-        ${prevYr?`<span class="delta ${clsCash}">${arrowCash} ${dCash>=0?'+':''}${eur(dCash)} · ${pct(pCash)}</span>`:''}
       </div>
       <div class="stack">
-        <div class="card kpi tap edge-l" id="kpi-c-trib" onclick="toggleKpi('trib')"><span class="chev">▾</span><div class="lbl">Sujeito a impostos</div><div class="val">${eur(tributavel)}</div><div class="note">base + car + bonus${cur.plafond?' + exp':''}</div></div>
+        <div class="card kpi tap edge-l" id="kpi-c-trib" onclick="toggleKpi('trib')"><span class="chev">▾</span><div class="lbl">Sujeito a impostos</div><div class="val">${eur(tributavel)}</div><div class="note">base + car + bonus${cur.plafond?' + exp':''} - Utiliz.</div></div>
         <div class="card kpi tap edge-r" id="kpi-c-ntrib" onclick="toggleKpi('ntrib')"><span class="chev">▾</span><div class="lbl">Não sujeito a impostos</div><div class="val">${eur(naoTributavel)}</div><div class="note">lunch${(flexT+expBen)?' + utilizações':''}</div></div>
       </div>
     </div>
