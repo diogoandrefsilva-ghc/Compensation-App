@@ -244,6 +244,7 @@ details.tax .tbody{padding:0 16px 14px}
 /* salário base: delta no canto inferior direito */
 .layer .kpi.bd{position:relative;padding-bottom:22px}
 .layer .kpi.bd .delta{position:absolute;right:10px;bottom:7px;margin:0}
+.layer .kpi.bd .bdmo{position:absolute;left:13px;bottom:9px;font-size:10.5px;font-weight:600;color:var(--mut)}
 /* layer 1: stack de 3 cards em grelha de linhas iguais — garante tamanho idêntico */
 .layer .stack.s3{display:grid;grid-auto-rows:1fr;gap:7px;min-width:0}
 .layer .stack.s3>*{min-height:0}
@@ -631,7 +632,7 @@ function renderResumo(){
     <!-- CAMADA 1 · Salario base + Allowances + Bonus (esq) + Total Cash (dir) -->
     <div class="layer">
       <div class="stack s3">
-        <div class="card kpi bd"><div class="lbl">Salário base / ano</div><div class="val">${eur(annualBase(cur))}</div>${prev?`<span class="delta sm ${cls}">${arrow} ${dM>=0?'+':''}${eur(dM*MONTHS_PER_YEAR)} · ${pct(pM)}</span>`:''}</div>
+        <div class="card kpi bd"><div class="lbl">Salário base / ano</div><div class="val">${eur(annualBase(cur))}</div><span class="bdmo">${eur(cur.baseMonthly)} / mês</span>${prev?`<span class="delta sm ${cls}">${arrow} ${dM>=0?'+':''}${eur(dM*MONTHS_PER_YEAR)} · ${pct(pM)}</span>`:''}</div>
         <div class="card kpi tap edge-l dc" id="kpi-c-allow" onclick="toggleKpi('allow')"><span class="chev">▾</span><div class="lbl">Allowances / ano</div><div class="val">${eur(allowNow)}</div><div class="note">lunch + car${cur.plafond?' + exp':''}${prevYr&&allowPrev?`<span class="delta sm ${clsAllow}">${arrowAllow} ${pct(pAllow)}</span>`:''}</div></div>
         <div class="card kpi tap edge-r dc" id="kpi-c-var" onclick="toggleKpi('var')"><span class="chev">▾</span><div class="lbl">Bonus / ano</div><div class="val">${eur(varAno)}<span class="pbase">${(pBonusBase*100).toLocaleString('pt-PT',{maximumFractionDigits:1})}% do base</span></div><div class="note">soma dos prémios${prevYr&&bonusPrev?`<span class="delta sm ${clsBonus}">${arrowBonus} ${pct(pBonus)}</span>`:''}</div></div>
       </div>
