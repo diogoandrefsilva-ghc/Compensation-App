@@ -228,14 +228,14 @@ details.tax .tbody{padding:0 16px 14px}
 .layer-detail{margin-bottom:10px}
 .layer-sep{height:1.5px;background:#c2a6e8;margin:2px 8px 12px;border-radius:2px}  /* traço entre camadas */
 /* Total Cash: containers Fixo / Variável dentro do card grande */
-.layer .big-card.tc{justify-content:flex-start;padding-bottom:13px}
-.layer .big-card.tc .delta-inl{position:static;display:inline-flex;align-self:flex-start;margin-top:3px}
-.layer .big-card.tc .tcsplit{display:grid;grid-template-columns:1fr;gap:6px;margin-top:9px}
-.layer .big-card.tc .tcbox{background:var(--pill);border:1px solid var(--line);border-radius:11px;padding:7px 9px}
-.layer .big-card.tc .tchead{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:4px}
+.layer .big-card.tc{justify-content:flex-start;padding-bottom:10px}
+.layer .big-card.tc .delta-inl{position:static;display:inline-flex;align-self:flex-start;margin-top:2px}
+.layer .big-card.tc .tcsplit{display:grid;grid-template-columns:1fr;gap:4px;margin-top:6px}
+.layer .big-card.tc .tcbox{background:var(--pill);border:1px solid var(--line);border-radius:10px;padding:5px 9px}
+.layer .big-card.tc .tchead{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:1px}
 .layer .big-card.tc .tctitle{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--acc)}
 .layer .big-card.tc .tctot{font-size:12.5px;font-weight:800;color:var(--txt);white-space:nowrap}
-.layer .big-card.tc .tcrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:1.5px 0}
+.layer .big-card.tc .tcrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:.5px 0}
 .layer .big-card.tc .tcrow .k{font-size:11px;color:var(--mut);font-weight:500}
 .layer .big-card.tc .tcrow .k .mult{font-size:8.5px;color:var(--mut);opacity:.75;font-weight:500}
 .layer .big-card.tc .tcrow .v{font-size:11.5px;color:var(--txt);font-weight:700;white-space:nowrap}
@@ -244,6 +244,9 @@ details.tax .tbody{padding:0 16px 14px}
 /* salário base: delta no canto inferior direito */
 .layer .kpi.bd{position:relative;padding-bottom:22px}
 .layer .kpi.bd .delta{position:absolute;right:10px;bottom:7px;margin:0}
+/* layer 1: stack de 3 cards em grelha de linhas iguais — garante tamanho idêntico */
+.layer .stack.s3{display:grid;grid-auto-rows:1fr;gap:7px;min-width:0}
+.layer .stack.s3>*{min-height:0}
 </style>
 </head>
 <body>
@@ -627,7 +630,7 @@ function renderResumo(){
   el.innerHTML = navBar + `
     <!-- CAMADA 1 · Salario base + Allowances + Bonus (esq) + Total Cash (dir) -->
     <div class="layer">
-      <div class="stack">
+      <div class="stack s3">
         <div class="card kpi bd"><div class="lbl">Salário base / ano</div><div class="val">${eur(annualBase(cur))}</div>${prev?`<span class="delta sm ${cls}">${arrow} ${dM>=0?'+':''}${eur(dM*MONTHS_PER_YEAR)} · ${pct(pM)}</span>`:''}</div>
         <div class="card kpi tap edge-l dc" id="kpi-c-allow" onclick="toggleKpi('allow')"><span class="chev">▾</span><div class="lbl">Allowances / ano</div><div class="val">${eur(allowNow)}</div><div class="note">lunch + car${cur.plafond?' + exp':''}${prevYr&&allowPrev?`<span class="delta sm ${clsAllow}">${arrowAllow} ${pct(pAllow)}</span>`:''}</div></div>
         <div class="card kpi tap edge-r dc" id="kpi-c-var" onclick="toggleKpi('var')"><span class="chev">▾</span><div class="lbl">Bonus / ano</div><div class="val">${eur(varAno)}<span class="pbase">${(pBonusBase*100).toLocaleString('pt-PT',{maximumFractionDigits:1})}% do base</span></div><div class="note">soma dos prémios${prevYr&&bonusPrev?`<span class="delta sm ${clsBonus}">${arrowBonus} ${pct(pBonus)}</span>`:''}</div></div>
