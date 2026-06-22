@@ -207,7 +207,7 @@ details.tax .tbody{padding:0 16px 14px}
 .layer .stack>*{margin-bottom:0;flex:1}                    /* os 2 cards pequenos preenchem a altura */
 .layer .big-card{margin-bottom:0;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px;position:relative;padding-bottom:26px}  /* padding-bottom reserva a faixa p/ o delta no canto */
 .layer .big-card .lbl{color:var(--mut);font-size:14px;font-weight:700}
-.layer .big-card .big{font-size:clamp(23px,7.4vw,33px);font-weight:800;letter-spacing:-.5px;line-height:1.04}  /* totais maiores: aproveitam o espaço livre */
+.layer .big-card .big{font-size:clamp(21px,6.9vw,30px);font-weight:800;letter-spacing:-.5px;line-height:1.04}  /* totais maiores: aproveitam o espaço livre */
 .layer .big-card .big small{font-size:13px;font-weight:600;color:var(--mut)}
 .layer .big-card .sub{font-size:11.5px;color:var(--mut);margin-top:1px;line-height:1.35}
 .layer .big-card .mbadge{align-self:flex-start;background:var(--pill);color:var(--acc);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;margin-top:3px}  /* mensal em badge */
@@ -248,6 +248,7 @@ details.tax .tbody{padding:0 16px 14px}
 /* layer 1: stack de 3 cards em grelha de linhas iguais — garante tamanho idêntico */
 .layer .stack.s3{display:grid;grid-auto-rows:1fr;gap:7px;min-width:0}
 .layer .stack.s3>*{min-height:0}
+.rk-src{cursor:pointer;-webkit-tap-highlight-color:transparent}
 </style>
 </head>
 <body>
@@ -632,12 +633,12 @@ function renderResumo(){
     <!-- CAMADA 1 · Salario base + Allowances + Bonus (esq) + Total Cash (dir) -->
     <div class="layer">
       <div class="stack s3">
-        <div class="card kpi bd"><div class="lbl">Salário base / ano</div><div class="val">${eur(annualBase(cur))}</div><span class="bdmo">${eur(cur.baseMonthly)} / mês</span>${prev?`<span class="delta sm ${cls}">${arrow} ${dM>=0?'+':''}${eur(dM*MONTHS_PER_YEAR)} · ${pct(pM)}</span>`:''}</div>
-        <div class="card kpi tap edge-l dc" id="kpi-c-allow" onclick="toggleKpi('allow')"><span class="chev">▾</span><div class="lbl">Allowances / ano</div><div class="val">${eur(allowNow)}</div><div class="note">lunch + car${cur.plafond?' + exp':''}${prevYr&&allowPrev?`<span class="delta sm ${clsAllow}">${arrowAllow} ${pct(pAllow)}</span>`:''}</div></div>
-        <div class="card kpi tap edge-r dc" id="kpi-c-var" onclick="toggleKpi('var')"><span class="chev">▾</span><div class="lbl">Bonus / ano</div><div class="val">${eur(varAno)}<span class="pbase">${(pBonusBase*100).toLocaleString('pt-PT',{maximumFractionDigits:1})}% do base</span></div><div class="note">soma dos prémios${prevYr&&bonusPrev?`<span class="delta sm ${clsBonus}">${arrowBonus} ${pct(pBonus)}</span>`:''}</div></div>
+        <div class="card kpi bd" data-rk="salario"><div class="lbl">Salário base / ano</div><div class="val">${eur(annualBase(cur))}</div><span class="bdmo">${eur(cur.baseMonthly)} / mês</span>${prev?`<span class="delta sm ${cls}">${arrow} ${dM>=0?'+':''}${eur(dM*MONTHS_PER_YEAR)} · ${pct(pM)}</span>`:''}</div>
+        <div class="card kpi tap edge-l dc" id="kpi-c-allow" data-rk="allow" onclick="toggleKpi('allow')"><span class="chev">▾</span><div class="lbl">Allowances / ano</div><div class="val">${eur(allowNow)}</div><div class="note">lunch + car${cur.plafond?' + exp':''}${prevYr&&allowPrev?`<span class="delta sm ${clsAllow}">${arrowAllow} ${pct(pAllow)}</span>`:''}</div></div>
+        <div class="card kpi tap edge-r dc" id="kpi-c-var" data-rk="bonus" onclick="toggleKpi('var')"><span class="chev">▾</span><div class="lbl">Bonus / ano</div><div class="val">${eur(varAno)}<span class="pbase">${(pBonusBase*100).toLocaleString('pt-PT',{maximumFractionDigits:1})}% do base</span></div><div class="note">soma dos prémios${prevYr&&bonusPrev?`<span class="delta sm ${clsBonus}">${arrowBonus} ${pct(pBonus)}</span>`:''}</div></div>
       </div>
       ${isLastOfYear?`
-      <div class="card big-card tc">
+      <div class="card big-card tc rk-src" data-rk="totalcash">
         <span class="lbl">Total cash</span>
         <span class="big">${eur(totalCashC)}</span>
         <div class="tcsplit">
@@ -676,8 +677,8 @@ function renderResumo(){
     <div class="layer-sep"></div>
     <!-- CAMADA 2 · Reparticao fiscal (sujeito | nao sujeito, lado a lado) -->
     <div class="layer">
-      <div class="card kpi tap edge-l" id="kpi-c-trib" onclick="toggleKpi('trib')"><span class="chev">▾</span><div class="lbl">Sujeito a impostos</div><div class="val">${eur(tributavel)}</div><div class="note">base + car + bonus${cur.plafond?' + exp':''} - Utiliz.</div></div>
-      <div class="card kpi tap edge-r" id="kpi-c-ntrib" onclick="toggleKpi('ntrib')"><span class="chev">▾</span><div class="lbl">Não sujeito a impostos</div><div class="val">${eur(naoTributavel)}</div><div class="note">lunch${(flexT+expBen)?' + utilizações':''}</div></div>
+      <div class="card kpi tap edge-l" id="kpi-c-trib" data-rk="trib" onclick="toggleKpi('trib')"><span class="chev">▾</span><div class="lbl">Sujeito a impostos</div><div class="val">${eur(tributavel)}</div><div class="note">base + car + bonus${cur.plafond?' + exp':''} - Utiliz.</div></div>
+      <div class="card kpi tap edge-r" id="kpi-c-ntrib" data-rk="ntrib" onclick="toggleKpi('ntrib')"><span class="chev">▾</span><div class="lbl">Não sujeito a impostos</div><div class="val">${eur(naoTributavel)}</div><div class="note">lunch${(flexT+expBen)?' + utilizações':''}</div></div>
     </div>
     <div class="kpi-detail edge-l layer-detail" id="kpi-d-trib"><div class="card"><div class="rows">
       <div class="rline"><span class="k">Salário base (anual)</span><span class="v">${eur(annualBase(cur))}</span></div>
@@ -699,10 +700,10 @@ function renderResumo(){
     <!-- CAMADA 3 · Beneficios fixos + Total compensation (card grande a direita) -->
     <div class="layer flip">
       <div class="stack">
-        <div class="card kpi"><div class="lbl">Telemóvel / ano</div><div class="val">${eur(telemovel)}</div><div class="note">plafond de comunicações</div></div>
-        <div class="card kpi tap edge-r" id="kpi-c-desc" onclick="toggleKpi('desc')"><span class="chev">▾</span><div class="lbl">Descontos / ano</div><div class="val">${eur(descontos)}</div><div class="note">desc. seg. saúde + ações</div></div>
+        <div class="card kpi" data-rk="telemovel"><div class="lbl">Telemóvel / ano</div><div class="val">${eur(telemovel)}</div><div class="note">plafond de comunicações</div></div>
+        <div class="card kpi tap edge-r" id="kpi-c-desc" data-rk="descontos" onclick="toggleKpi('desc')"><span class="chev">▾</span><div class="lbl">Descontos / ano</div><div class="val">${eur(descontos)}</div><div class="note">desc. seg. saúde + ações</div></div>
       </div>
-      <div class="card big-card tc">
+      <div class="card big-card tc rk-src" data-rk="totalcomp">
         <span class="lbl">Total compensation</span>
         <span class="big">${eur(totalC)}</span>
         ${prevYr?`<span class="delta delta-inl ${clsTC}">${arrowTC} ${dTC>=0?'+':''}${eur(dTC)} · ${pct(pTC)}</span>`:''}
@@ -1458,6 +1459,44 @@ if ('serviceWorker' in navigator) {
         .then((reg) => { setInterval(() => reg.update().catch(() => {}), 60000); })
         .catch((err) => console.log('[SW] Registration failed:', err));
 }
+</script>
+<script>
+/* Resumo: tocar num total/parcela destaca os cards que lhe dao origem (~1.1s) */
+(function(){
+  var REL={
+    totalcash:['salario','allow','bonus'],
+    trib:['totalcash'],
+    ntrib:['totalcash'],
+    totalcomp:['totalcash','telemovel','descontos']
+  };
+  var REDUCE=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var BASE_SHADOW='0 6px 18px -8px rgba(120,40,200,.18)';
+  function flash(el){
+    if(!el) return;
+    if(REDUCE){
+      el.style.transition='border-color .15s, box-shadow .15s';
+      el.style.borderColor='rgba(160,32,224,.95)';
+      el.style.boxShadow='0 0 0 3px rgba(160,32,224,.40), '+BASE_SHADOW;
+      setTimeout(function(){el.style.borderColor='';el.style.boxShadow='';el.style.transition='';},1100);
+      return;
+    }
+    el.animate([
+      {boxShadow:BASE_SHADOW,borderColor:'#ece1fb',transform:'scale(1)'},
+      {boxShadow:'0 0 0 3px rgba(160,32,224,.50), 0 10px 26px -6px rgba(160,32,224,.45)',borderColor:'rgba(160,32,224,.95)',transform:'scale(1.035)',offset:.22},
+      {boxShadow:BASE_SHADOW,borderColor:'#ece1fb',transform:'scale(1)'}
+    ],{duration:1100,easing:'ease-out'});
+  }
+  document.addEventListener('click',function(e){
+    var src=e.target&&e.target.closest?e.target.closest('[data-rk]'):null;
+    if(!src) return;
+    var t=REL[src.getAttribute('data-rk')];
+    if(!t) return;
+    t.forEach(function(k,i){
+      var el=document.querySelector('[data-rk="'+k+'"]');
+      setTimeout(function(){flash(el);},i*70);
+    });
+  });
+})();
 </script>
 </body>
 </html>
