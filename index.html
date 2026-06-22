@@ -638,20 +638,20 @@ function renderResumo(){
         <div class="card kpi tap edge-r dc" id="kpi-c-var" data-rk="bonus" onclick="toggleKpi('var')"><span class="chev">▾</span><div class="lbl">Bonus / ano</div><div class="val">${eur(varAno)}<span class="pbase">${(pBonusBase*100).toLocaleString('pt-PT',{maximumFractionDigits:1})}% do base</span></div><div class="note">soma dos prémios${prevYr&&bonusPrev?`<span class="delta sm ${clsBonus}">${arrowBonus} ${pct(pBonus)}</span>`:''}</div></div>
       </div>
       ${isLastOfYear?`
-      <div class="card big-card tc rk-src" data-rk="totalcash">
+      <div class="card big-card tc" data-rk="totalcash">
         <span class="lbl">Total cash</span>
         <span class="big">${eur(totalCashC)}</span>
         <div class="tcsplit">
-          <div class="tcbox">
+          <div class="tcbox rk-src" data-rk="tc_fixo">
             <div class="tchead"><span class="tctitle">Fixo mensal</span><span class="tctot">${eur(fixoMensalNoLunchMo)}</span></div>
             <div class="tcrow"><span class="k">Base <span class="mult">(×${MONTHS_PER_YEAR})</span></span><span class="v">${eur(cur.baseMonthly)}</span></div>
             ${(cur.fixed.car||cur.plafond)?`<div class="tcrow"><span class="k">Car${cur.plafond?' + Exp':''}</span><span class="v">${eur(carExpMo)}</span></div>`:''}
           </div>
-          ${cur.fixed.lunch?`<div class="tcbox">
+          ${cur.fixed.lunch?`<div class="tcbox rk-src" data-rk="tc_lunch">
             <div class="tchead"><span class="tctitle">Lunch</span></div>
             <div class="tcrow"><span class="k">Valor / dia</span><span class="v">${lunchDia}</span></div>
           </div>`:''}
-          <div class="tcbox">
+          <div class="tcbox rk-src" data-rk="tc_var">
             <div class="tchead"><span class="tctitle">Variável</span></div>
             <div class="tcrow"><span class="k">Prémios</span><span class="v">${eur(varAno)}</span></div>
           </div>
@@ -1464,7 +1464,9 @@ if ('serviceWorker' in navigator) {
 /* Resumo: tocar num total/parcela destaca os cards que lhe dao origem (~1.1s) */
 (function(){
   var REL={
-    totalcash:['salario','allow','bonus'],
+    tc_fixo:['salario','allow'],
+    tc_lunch:['allow'],
+    tc_var:['bonus'],
     trib:['totalcash'],
     ntrib:['totalcash'],
     totalcomp:['totalcash','telemovel','descontos']
