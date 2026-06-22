@@ -249,6 +249,7 @@ details.tax .tbody{padding:0 16px 14px}
 .layer .stack.s3{display:grid;grid-auto-rows:1fr;gap:7px;min-width:0}
 .layer .stack.s3>*{min-height:0}
 .rk-src{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.permo{font-size:.82em;color:var(--mut);font-weight:500;opacity:.85;margin-left:4px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -663,9 +664,9 @@ function renderResumo(){
       </div>`}
     </div>
     <div class="kpi-detail edge-l layer-detail" id="kpi-d-allow"><div class="card"><div class="rows">
-      ${cur.fixed.lunch?`<div class="rline"><span class="k">Lunch Allowance</span><span class="v">${eur(cur.fixed.lunch)}</span></div>`:''}
-      ${cur.fixed.car?`<div class="rline"><span class="k">Car Allowance</span><span class="v">${eur(cur.fixed.car)}</span></div>`:''}
-      ${cur.plafond?`<div class="rline"><span class="k">Expenses Allowance</span><span class="v">${eur(cur.plafond)}</span></div>`:''}
+      ${cur.fixed.lunch?`<div class="rline"><span class="k">Lunch Allowance<span class="permo">(${lunchDia} / dia)</span></span><span class="v">${eur(cur.fixed.lunch)}</span></div>`:''}
+      ${cur.fixed.car?`<div class="rline"><span class="k">Car Allowance<span class="permo">(${eur(cur.fixed.car/12)} / mês)</span></span><span class="v">${eur(cur.fixed.car)}</span></div>`:''}
+      ${cur.plafond?`<div class="rline"><span class="k">Expenses Allowance<span class="permo">(${eur(cur.plafond/12)} / mês)</span></span><span class="v">${eur(cur.plafond)}</span></div>`:''}
       <div class="rline" style="border-top:1px dashed var(--line);padding-top:8px"><span class="k"><b>Total allowances</b></span><span class="v"><b>${eur(allowanceTotal(cur)+(cur.plafond||0))}</b></span></div>
     </div></div></div>
     <div class="kpi-detail edge-r layer-detail" id="kpi-d-var"><div class="card"><div class="rows">
@@ -700,7 +701,7 @@ function renderResumo(){
     <!-- CAMADA 3 · Beneficios fixos + Total compensation (card grande a direita) -->
     <div class="layer flip">
       <div class="stack">
-        <div class="card kpi" data-rk="telemovel"><div class="lbl">Telemóvel / ano</div><div class="val">${eur(telemovel)}</div><div class="note">plafond de comunicações</div></div>
+        <div class="card kpi" data-rk="telemovel"><div class="lbl">Telemóvel / ano</div><div class="val">${eur(telemovel)}</div><div class="note">${eur(telemovel/12)} / mês</div></div>
         <div class="card kpi tap edge-r" id="kpi-c-desc" data-rk="descontos" onclick="toggleKpi('desc')"><span class="chev">▾</span><div class="lbl">Descontos / ano</div><div class="val">${eur(descontos)}</div><div class="note">desc. seg. saúde + ações</div></div>
       </div>
       <div class="card big-card tc rk-src" data-rk="totalcomp">
@@ -789,11 +790,11 @@ function renderRevs(){
             ${yearVarTotal?`<div class="rline"><span class="k">Prémios do ano (${y})</span><span class="v">${eur(yearVarTotal)}</span></div>
             ${VAR_FIELDS.filter(([k])=>yearVarByField[k]).map(([k,lbl])=>`<div class="rline sub"><span class="k" style="padding-left:10px">· ${lbl}</span><span class="v">${eur(yearVarByField[k])}</span></div>`).join('')}`:''}
             <div class="rline"><span class="k">Allowances</span><span class="v">${eur(allowanceTotal(r)+(r.plafond||0))}</span></div>
-            ${ALLOWANCE_FIELDS.filter(([k])=>r.fixed[k]).map(([k,lbl])=>`<div class="rline sub"><span class="k" style="padding-left:10px">· ${lbl}</span><span class="v">${eur(r.fixed[k])}</span></div>`).join('')}
-            ${r.plafond?`<div class="rline sub"><span class="k" style="padding-left:10px">· Expenses Allowance</span><span class="v">${eur(r.plafond)}</span></div>`:''}
+            ${ALLOWANCE_FIELDS.filter(([k])=>r.fixed[k]).map(([k,lbl])=>`<div class="rline sub"><span class="k" style="padding-left:10px">· ${lbl}<span class="permo">(${k==='lunch'?(r.fixed[k]/242).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2})+' € / dia':eur(r.fixed[k]/12)+' / mês'})</span></span><span class="v">${eur(r.fixed[k])}</span></div>`).join('')}
+            ${r.plafond?`<div class="rline sub"><span class="k" style="padding-left:10px">· Expenses Allowance<span class="permo">(${eur(r.plafond/12)} / mês)</span></span><span class="v">${eur(r.plafond)}</span></div>`:''}
             <div class="rline" style="margin-top:2px"><span class="k" style="color:var(--warn);font-weight:700">Total Cash</span><span class="v" style="color:var(--warn);font-weight:800">${eur(cashR)}</span></div>
             <div class="rline" style="border-top:1px dashed var(--line);padding-top:10px;margin-top:2px"><span class="k">Benefícios Fixos</span><span class="v">${eur(fixedBenefTotal(r))}</span></div>
-            ${r.fixed.comms?`<div class="rline sub"><span class="k" style="padding-left:10px">· Plafond Telemóvel</span><span class="v">${eur(r.fixed.comms)}</span></div>`:''}
+            ${r.fixed.comms?`<div class="rline sub"><span class="k" style="padding-left:10px">· Plafond Telemóvel<span class="permo">(${eur(r.fixed.comms/12)} / mês)</span></span><span class="v">${eur(r.fixed.comms)}</span></div>`:''}
             ${insurancesTotal(r)?`<div class="rline sub"><span class="k" style="padding-left:10px">· Desconto Seg. Saúde</span><span class="v">${eur(insurancesTotal(r))}</span></div>`:''}
             ${stockPlanBenefit(r)?`<div class="rline sub"><span class="k" style="padding-left:10px">· Desconto Ações <span class="muted">(15%)</span></span><span class="v"><sup style="font-size:9px;color:var(--mut)">*</sup>&thinsp;${eur(stockPlanBenefit(r))}</span></div>
             <div style="padding-left:20px;font-size:10px;color:var(--mut);margin:-4px 0 4px">* ganho estimado (valor indicativo)</div>`:''}
