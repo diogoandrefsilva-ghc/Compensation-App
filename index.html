@@ -1488,11 +1488,27 @@ if ('serviceWorker' in navigator) {
       {boxShadow:BASE_SHADOW,borderColor:'#ece1fb',transform:'scale(1)'}
     ],{duration:1100,easing:'ease-out'});
   }
+  function flashBox(el){
+    if(!el) return;
+    if(REDUCE){
+      el.style.transition='border-color .15s, box-shadow .15s';
+      el.style.borderColor='rgba(160,32,224,.90)';
+      el.style.boxShadow='0 0 0 2px rgba(160,32,224,.40)';
+      setTimeout(function(){el.style.borderColor='';el.style.boxShadow='';el.style.transition='';},1100);
+      return;
+    }
+    el.animate([
+      {boxShadow:'0 0 0 0 rgba(160,32,224,0)',borderColor:'#ece1fb',transform:'scale(1)'},
+      {boxShadow:'0 0 0 3px rgba(160,32,224,.45)',borderColor:'rgba(160,32,224,.90)',transform:'scale(1.045)',offset:.22},
+      {boxShadow:'0 0 0 0 rgba(160,32,224,0)',borderColor:'#ece1fb',transform:'scale(1)'}
+    ],{duration:1100,easing:'ease-out'});
+  }
   document.addEventListener('click',function(e){
     var src=e.target&&e.target.closest?e.target.closest('[data-rk]'):null;
     if(!src) return;
     var t=REL[src.getAttribute('data-rk')];
     if(!t) return;
+    if(src.classList.contains('tcbox')) flashBox(src);
     t.forEach(function(k,i){
       var el=document.querySelector('[data-rk="'+k+'"]');
       setTimeout(function(){flash(el);},i*70);
